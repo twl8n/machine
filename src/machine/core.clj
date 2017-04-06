@@ -30,8 +30,9 @@
   (prn "second:")
   ((:foo {:foo (eval 'baz)})))
 
-  ;; The only :else for both cond's would be logging. The :else of the inner cond should never be reached.
-  ;; The :else of the outer cond happens all the time as we iterate through the current state.
+;; The only :else for both cond's would be logging. The :else of the inner cond should never be reached.
+;; The :else of the outer cond happens all the time as we iterate through the current state.
+
 (defn traverse
   "Must have a starting state. jump-stack initially is empty. Return a map with keys wait-next, msg."
   [curr-state jump-stack]
