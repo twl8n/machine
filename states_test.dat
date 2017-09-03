@@ -1,0 +1,20 @@
+| state-edge     | test         | func-dispatch            | next-state-edge |
+|----------------+--------------+--------------------------+-----------------|
+|                |              |                          |                 |
+| login          | if-logged-in |                          | pages           |
+| login          |              | draw-login               | login-wait      |
+| login          |              | wait                     | login           |
+| login-input    | if-logged-in |                          | dashboard       |
+| login-input    |              | login                    | login           |
+| login-wait     |              | wait                     | login-input     |
+|                |              |                          |                 |
+| pages          |              | wait                     |                 |
+|                |              |                          |                 |
+| dashboard      | if-moderator | draw-dashboard-moderator | dashboard-wait  |
+| dashboard      |              | draw-dashboard           | dashboard-wait  |
+|                |              |                          |                 |
+| dashboard-wait |              | wait                     | dashboard       |
+| logout         |              | logout                   | login           |
+|                |              |                          |                 |
+
+
