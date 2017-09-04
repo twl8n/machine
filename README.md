@@ -1,13 +1,21 @@
 #### machine
 
-* sub-table returns only the current edges
+* + make traverse return a map with fres, final state, etc. so the calling code can always determine what happened
 
-* recursing on traverse needs to send the new edge and jumpstack, but the table global will be used by the
+* fres depleted when not in wait is an error, and the machine should halt or something.
+
+* x sub-table returns only the current edges
+
+* save or return the final state when we halted (wait). Return this to the top level.
+
+* ? recursing on traverse needs to send the new edge and jumpstack, but the table global will be used by the
 next call to sub-table
 
-* execution halts on wait, or running out of anything (edges, states, etc.)
+* x execution halts on wait, or running out of anything (edges, states, etc.)
 
-* add traverse needs to return when st (sub-table ...) is consumed.
+* x add traverse needs to return when st (sub-table ...) is consumed.
+
+* sanity check, warn if next-state-edgte (column 4) is not empty when func is wait.
 
 * sanity check can't reach the 3rd line:
 

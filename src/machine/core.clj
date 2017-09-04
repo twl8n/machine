@@ -7,6 +7,16 @@
 ;; https://github.com/clojure/tools.namespace
 ;; (tns/refresh)
 
+;; fres status values
+;; finished is a function ran
+;; depleted is no more edges to test
+;; running is function has not yet run
+
+(def finished "finished")
+(def depleted "depleted")
+(def running "running")
+(def halt "running")
+
 (defn msg [arg] (prn arg) (def _msg (str _msg "\n" arg)))
 
 (defn clrmsg [] (def _msg ""))
@@ -29,6 +39,15 @@
 ;; table is a global, read only.
 (def table [{:edge "login", :test "if-logged-in", :func "", :next "pages"}])
 
+(def app-state (atom {}))
+
+(defn reset-state [] 
+  (swap! app-state (fn [foo]
+                      {:if-logged-in false
+                       :if-moderator false
+                       :if-on-dashboard false
+                       :if-want-dashboard false})))
+
 ;; function names are symbols
 (defn ex1 []
   (defn baz [] (prn "fn baz"))
@@ -48,11 +67,11 @@
 (defn is-return? [arg] false)
 (defn jump-to [arg jstack] [arg (cons arg jstack)])
 
-(def logged-in-state false)
-(defn if-logged-in [] (msg "ran if-logged-in") logged-in-state)
+(defn if-logged-in [] (msg "ran if-logged-in") (@app-state :if-logged-in))
+(defn if-moderator [] (msg "ran if-moderator") (@app-state :if-moderator))
+(defn if-on-dashboard [] (@app-state :if-on-dashboard))
+(defn if-want-dashboard [] (@app-state :if-want-dashboard))
 
-(def moderator-state false)
-(defn if-moderator [] (msg "ran if-moderator") moderator-state)
 (defn draw-login [] (msg "ran draw-login") true)
 (defn draw-dashboard-moderator [] (msg "ran draw-dashboard-moderator") true)
 (defn draw-dashboard [] (msg "ran draw-dashboard") true)
@@ -73,56 +92,19 @@
 
 
 (comment 
+  ;; See code_archive.clj
   (and (= (smap :edge) "login")
        (if ((smap :test))
          (do
            (dispatch (smap :func))
            (traverse (smap :next) []))))
 
-  (defn old-traverse
-  "Must have a starting state aka edge. jump-stack initially is empty. Return a map with keys wait-next, msg."
-  [curr-state jump-stack]
-  (prn "traverse curr-state: " curr-state " js: " jump-stack)
-  (loop [st (sub-table curr-state table)]
-    (cond (empty? st)
-          (do
-            (prn "table is empty for edge: " curr-state)
-            false)
-          (nil? (read-line)) ;; ^D will cause nil input
-          (do
-            (prn "read-line returned nil")
-            false)
-          :else
-          (let [smap (first st) ;; state map, state table
-                ;; this old test for the :edge to match curr-state is wrong because we use sub-table
-                ;; (and (= (smap :edge) curr-state)
-                fres (cond (if ((smap :test))
-                             (do
-                               (if (dispatch (smap :func))
-                                 (traverse (smap :next) jump-stack)
-                                 false)))
-                           ;; if true we really want to do a cond. The if-cond should be an fn.
-                           (cond ((smap :func)) ;; never nil? because empty :func becomes fntrue
-                                 (traverse (smap :next) jump-stack)
-                                 (is-jump? (smap :func))
-                                 (apply traverse (jump-to (smap :func) jump-stack))
-                                 (is-return? (smap :func))
-                                 (traverse (first jump-stack) (rest jump-stack))
-                                 (is-wait? (smap :func))
-                                 (do
-                                   (prn "is-wait? true")
-                                   ;; (smap :next)
-                                   false))
-                           :else
-                           false)]
-            (prn "fres: " fres " post-let js: " jump-stack " edge: " (smap :edge))
-            (if fres
-              (do
-                (prn "fres is true")
-                false)
-              (recur (rest st))))
-          )) false)
+
+  (def fres "finished|depleted|running")
+
+  (def fres {:status "finished|depleted|running"})
   )
+
 
 (defn traverse
   "Must have a starting state aka edge. jump-stack initially is empty. Return a map with keys wait-next, msg."
@@ -135,47 +117,35 @@
             ;; the table is normally empty when the recur returns nothing because we're done, but
             ;; that should never happen, and right now it happens all the time, so the (if) logic
             ;; to stop the recur is probably backward.
-            false)
+            depleted)
           (nil? (read-line)) ;; ^D will cause nil input
           (do
             (prn "read-line returned nil")
-            false)
+            "halt")
           :else
           (let [smap (first st) ;; state map, state table
-                ;; this old test for the :edge to match curr-state is wrong because we use sub-table
-                ;; (and (= (smap :edge) curr-state)
-
-                ;; Check for true + wait, return, jump and only if none of them
-                ;; then run the fun. Unclear why dispatch exists since :func are always functions.
-
-                ;; This code does not check that ((smap :func)) is true, and needs to before diving into
-                ;; a nested cond, or a function with a cond.
-
-                fres (cond (is-jump? (smap :func))
-                           (apply traverse (jump-to (smap :func) jump-stack))
-                           (is-return? (smap :func))
-                           (traverse (first jump-stack) (rest jump-stack))
-                           (is-wait? (smap :func))
-                           (do
-                             (prn "is-wait? true")
-                             ;; (smap :next)
-                             false)
-                           ((smap :func)) ;; never nil? because empty :func becomes fntrue
-                           (traverse (smap :next) jump-stack)
-                           ((smap :test))
-                           (do
-                             (if (dispatch (smap :func))
-                               (traverse (smap :next) jump-stack)
-                               false))
-                           :else
-                           false)]
+                fres (if ((smap :test))
+                       (cond (is-jump? (smap :func))
+                             (apply traverse (jump-to (smap :func) jump-stack))
+                             (is-return? (smap :func))
+                             (traverse (first jump-stack) (rest jump-stack))
+                             (is-wait? (smap :func))
+                             (do
+                               (prn "is-wait? true")
+                               ;; (smap :next)
+                               finished)
+                             ((smap :func)) ;; never nil? because empty :func becomes fntrue
+                             (traverse (smap :next) jump-stack)
+                             :else
+                             (if ((smap :func)) ;; (dispatch (smap :func))
+                                 (traverse (smap :next) jump-stack)))
+                       running)]
             (prn "fres: " fres " post-let js: " jump-stack " edge: " (smap :edge))
-            (if fres
+            (if (not (= fres running))
               (do
-                (prn "fres is true")
-                false)
-              (recur (rest st))))
-          )) false)
+                (prn "fres is " fres)
+                fres)
+              (recur (rest st)))))))
 
 
 (defn str-to-func
@@ -200,9 +170,30 @@
     (map #(str-to-func % :func) (map #(str-to-func % :test) with-strings))))
 
 (defn demo []
+  (reset-state)
   (def table (read-state-file))
   (traverse "login" [])
   )
+
+(defn demo2 []
+  (reset-state)
+  (swap! app-state #(merge % {:if-logged-in true}))
+  (def table (read-state-file))
+  (traverse "login" [])
+  )
+
+(defn demo3 []
+  (reset-state)
+  (swap! app-state #(merge % {:if-logged-in true :if-on-dashboard true}))
+  (def table (read-state-file))
+  (traverse "login" []))
+
+(defn demo4 []
+  (reset-state)
+  (swap! app-state #(merge % {:if-logged-in true :if-want-dashboard true :if-moderator true}))
+  (def table (read-state-file))
+  (traverse "login" []))
+
 
 
 (defn -main
