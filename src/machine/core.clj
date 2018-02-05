@@ -157,34 +157,51 @@
   (mapv (comp 
          (fn [xx] (update-in xx [0] str-to-func))
          (fn [xx] (update-in xx [1] str-to-func))
-         (fn [xx] (update-in xx [2] keyword))
          )
         strvec))
 
 
 (defn gather [good-lines edge]
-  (let [elines (mapv #(vec (rest %)) (filterv #(= (first %) edge) good-lines))
+  (let [fv (filterv #(= (first %) edge) good-lines)
+        elines (mapv #(vec (rest %)) fv)
         state-vec (make-state elines)]
     {(keyword edge) state-vec}))
 
 
+(defn make-node [mapnode table]
+  (let [[nkey nseq] mapnode]
+    {nkey 
+     (mapv (fn foo [xx]
+             (let [nexts (nth xx 2 nil)
+                   keywrd (if (seq nexts) 
+                            (keyword nexts)
+                            nil)]
+                (if (some? (get table keywrd))
+                  (assoc xx 2 keywrd)
+                  (do
+                    (if (seq nexts)
+                      (prn "Can't find=" keywrd)
+                      (assoc xx 2 nil))))))
+           nseq)}))
+
 (defn read-state-file []
   (let [all-lines (slurp "states_test.dat")
         lseq (rest (map (fn bar [one-line]
-                          (let [this-line (str/split (clean-line one-line) #"\s*\|\s*")]
+                          ;; It is important that this alway return a vector of 4 strings.
+                          (let [this-line (mapv str/trim (str/split (clean-line one-line) #"\|"))]
                             this-line))
                         (str/split all-lines #"\n")))
-        good-lines (filter (fn foo [xx] (> (count xx) 1)) lseq)
+        good-lines (filterv (fn foo [xx] (> (count xx) 1)) lseq)
         edges (set (map first good-lines))
         table (into {} (map  #(gather good-lines %) edges))
         ]
-    table))
+    (into {} (mapv #(make-node % table) table))))
 
-(def table (read-state-file))
+
+(def table {})
 
 (defn traverse
   [state]
-  (prn "traverse state=" state)
   (if (nil? state)
     nil
     (loop [tt (state table)]
