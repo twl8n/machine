@@ -149,54 +149,83 @@
 
 
 (defn str-to-func
-  "Return a map with the value of ykey changed from a string to the function named by the string. Assumes the
-  function exists. This should be upgraded to only allow functions the state machine is allowed to call. Empty
-  strings are change to fntrue."
-  [xmap ykey]
-  (let [fsym (symbol (or (not-empty (ykey xmap)) "fntrue"))]
-    (merge xmap {ykey (eval fsym)})))
+  [xx]
+  (eval (symbol (or (not-empty xx) "fntrue"))))
 
-;; turn this into a function, run on the seq of maps that is the state table from read-state-file
-;;   (map (fn [x] (if (not (= "" (x :test))) (assoc x :testx (eval (read-string (x :test)))) x)) table)
+
+(defn make-state "v2" [strvec]
+  (mapv (comp 
+         (fn [xx] (update-in xx [0] str-to-func))
+         (fn [xx] (update-in xx [1] str-to-func))
+         (fn [xx] (update-in xx [2] keyword))
+         )
+        strvec))
+
+
+(defn gather [good-lines edge]
+  (let [elines (mapv #(vec (rest %)) (filterv #(= (first %) edge) good-lines))
+        state-vec (make-state elines)]
+    {(keyword edge) state-vec}))
+
 
 (defn read-state-file []
   (let [all-lines (slurp "states_test.dat")
         lseq (rest (map (fn bar [one-line]
-                    (let [this-line (str/split (clean-line one-line) #"\s*\|\s*")]
-                      this-line))
+                          (let [this-line (str/split (clean-line one-line) #"\s*\|\s*")]
+                            this-line))
                         (str/split all-lines #"\n")))
         good-lines (filter (fn foo [xx] (> (count xx) 1)) lseq)
-        with-strings (map #(zipmap col-name %) good-lines)]
-    (map #(str-to-func % :func) (map #(str-to-func % :test) with-strings))))
+        edges (set (map first good-lines))
+        table (into {} (map  #(gather good-lines %) edges))
+        ]
+    table))
+
+(def table (read-state-file))
+
+(defn traverse
+  [state]
+  (prn "traverse state=" state)
+  (if (nil? state)
+    nil
+    (loop [tt (state table)]
+      (let [curr (first tt)]
+        (if ((nth curr 0))
+          (do
+            ((nth curr 1))
+            (if (some? (nth curr 2))
+              (traverse (nth curr 2))))
+          (recur (rest tt)))))))
+
 
 (defn demo []
   (reset-state)
   (def table (read-state-file))
-  (traverse "login" [])
+  (traverse :login)
   )
 
 (defn demo2 []
   (reset-state)
   (swap! app-state #(merge % {:if-logged-in true}))
   (def table (read-state-file))
-  (traverse "login" [])
+  (traverse :login)
   )
 
 (defn demo3 []
   (reset-state)
   (swap! app-state #(merge % {:if-logged-in true :if-on-dashboard true}))
   (def table (read-state-file))
-  (traverse "login" []))
+  (traverse :login))
 
 (defn demo4 []
   (reset-state)
   (swap! app-state #(merge % {:if-logged-in true :if-want-dashboard true :if-moderator true}))
   (def table (read-state-file))
-  (traverse "login" []))
-
+  (traverse :login))
 
 
 (defn -main
   "Parse the states.dat file."
   [& args]
   (read-state-file))
+
+(demo2)

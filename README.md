@@ -1,5 +1,12 @@
 #### machine
 
+* x test.clj change to hash of seq of seq where key is edge name and seqs are states for that edge.
+
+* + test.clj munge strings to functions (or symbols) at parse time
+or leave them as strings and munge-eval at runtime
+
+* test
+
 * + make traverse return a map with fres, final state, etc. so the calling code can always determine what happened
 
 * fres depleted when not in wait is an error, and the machine should halt or something.
