@@ -1,5 +1,8 @@
 #### machine
 
+* demo4 fails, perhaps because will-not-dashboard doesn't exist.
+Maybe if table has any fail during parsing, then exit.
+
 * upgrade state node vectors to a map for the sake of debugging, and
 get rid of nth and assoc with seq indexes. The indexes are very bug prone.
 

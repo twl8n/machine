@@ -69,8 +69,8 @@
 
 (defn if-logged-in [] (msg "ran if-logged-in") (@app-state :if-logged-in))
 (defn if-moderator [] (msg "ran if-moderator") (@app-state :if-moderator))
-(defn if-on-dashboard [] (@app-state :if-on-dashboard))
-(defn if-want-dashboard [] (@app-state :if-want-dashboard))
+(defn if-on-dashboard [] (msg "if-on-dashboard") (@app-state :if-on-dashboard))
+(defn if-want-dashboard [] (msg "if-want-dashboard") (@app-state :if-want-dashboard))
 
 (defn draw-login [] (msg "ran draw-login") true)
 (defn draw-dashboard-moderator [] (msg "ran draw-dashboard-moderator") true)
@@ -202,6 +202,7 @@
 
 (defn traverse
   [state]
+  (prn "state=" state)
   (if (nil? state)
     nil
     (loop [tt (state table)]
@@ -245,4 +246,3 @@
   [& args]
   (read-state-file))
 
-(demo2)
