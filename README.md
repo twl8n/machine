@@ -1,11 +1,16 @@
 #### machine
 
+* upgrade state node vectors to a map for the sake of debugging, and
+get rid of nth and assoc with seq indexes. The indexes are very bug prone.
+
 * x test.clj change to hash of seq of seq where key is edge name and seqs are states for that edge.
 
-* + test.clj munge strings to functions (or symbols) at parse time
+* x test.clj munge strings to functions (or symbols) at parse time
 or leave them as strings and munge-eval at runtime
 
-* test
+* x port test.clj to core.clj
+
+* x get it all working, run demos
 
 * + make traverse return a map with fres, final state, etc. so the calling code can always determine what happened
 
