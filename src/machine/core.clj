@@ -1,6 +1,6 @@
 (ns machine.core
   (:require [clojure.string :as str]
-            [clojure.tools.namespace.repl :as tns]
+            [clojure.tools.namespace.repl :as tnr]
             [clojure.pprint :as pp])
   (:gen-class))
 
@@ -167,8 +167,11 @@
         state-vec (make-state elines)]
     {(keyword edge) state-vec}))
 
-
-(defn make-node [mapnode table]
+;; The table is the full table, just not in a map form. We can check that nexts is an existing key in the
+;; table. Rather than printing a message we should set an error condition.
+(defn make-node
+  "Create a seq of states for a given node. Returning a hashmap with the node as key and states as a vector."
+  [mapnode table]
   (let [[nkey nseq] mapnode]
     {nkey 
      (mapv (fn foo [xx]
@@ -207,7 +210,7 @@
     nil
     (loop [tt (state table)]
       (let [curr (first tt)]
-        (if ((nth curr 0))
+        (if (or (nil? curr) (nth curr 0))
           (do
             ((nth curr 1))
             (if (some? (nth curr 2))
@@ -240,6 +243,15 @@
   (def table (read-state-file))
   (traverse :login))
 
+;; state_test.edn is nearly identical to state_test.dat, but without the intentional missing
+;; state :will-not-dashboard.
+
+(defn demo5
+  "Just like demo4, but read a .edn file directly instead of parsing an orgtble formatted file"
+  []
+  (def table (eval (read-string (slurp "state_test.edn"))))
+  (swap! app-state #(merge % {:if-logged-in true :if-want-dashboard true :if-moderator true}))
+  (traverse :login))       
 
 (defn -main
   "Parse the states.dat file."
