@@ -37,7 +37,11 @@
 ;; Use (zipmap ...) when you want to directly construct a hashmap from separate sequences of keys and values. The output is a hashmap:
 
 ;; table is a global, read only.
-(def table [{:edge "login", :test "if-logged-in", :func "", :next "pages"}])
+(def table (atom []))
+
+;; It should not be necessary to init the table, since the first thing is always to read it in off disk.
+(defn init-table-if-you-need-to []
+  (reset! table ([{:edge "login", :test "if-logged-in", :func "", :next "pages"}])))
 
 (def app-state (atom {}))
 
@@ -80,37 +84,55 @@
 (defn fntrue [] (msg "ran fntrue") true)
 (defn wait [] (msg "ran wait, returning false") false) ;; return false because wait "fails"?
 
+(def str-to-func-hashmap
+  {"if-logged-in" if-logged-in
+   "if-moderator" if-moderator
+   "if-on-dashboard" if-on-dashboard
+   "if-want-dashboard" if-want-dashboard
+   "draw-login" draw-login
+   "draw-dashboard-moderator" draw-dashboard-moderator
+   "draw-dashboard" draw-dashboard
+   "logout" logout
+   "login" login
+   "fntrue" fntrue
+   "wait" wait})
+
+(defn str-to-func [xx]
+  (get str-to-func-hashmap xx))
+  
+;; 2021-01-16 resolving symbols at runtime isn't working in lein. 
+(defn bad-str-to-func
+  [xx]
+  (let [symstr "draw-dashboard-moderator"]
+    (draw-dashboard-moderator)
+    (printf "symstr is %s\n" symstr)
+    (printf "delay for %s\n" (read-string symstr)))
+  (if (empty? xx)
+    (do 
+      (printf "xx is empty, returning %s\n" fntrue)
+      fntrue)
+    (let [symres (resolve (symbol xx))]
+      (printf "xx is %s, returning %s ddm is %s\n" xx symres (resolve (symbol "draw-dashboard-moderator")))
+      symres)))
+
+(defn sub-table [edge table]
+  (edge table))
+
 ;; The only :else for both cond's would be logging. The :else of the inner cond should never be reached.
 ;; The :else of the outer cond happens all the time as we iterate through the current state.
-
-;; Figure out how to pass table into traverse.
-
-(defn sub-table
+(defn old-sub-table
   "String edge is a value of :edge, table is the entire state table. Returns only matches edges of the table."
   [edge table]
   (filter #(= (:edge %) edge) table))
 
 
-(comment 
-  ;; See code_archive.clj
-  (and (= (smap :edge) "login")
-       (if ((smap :test))
-         (do
-           (dispatch (smap :func))
-           (traverse (smap :next) []))))
-
-
-  (def fres "finished|depleted|running")
-
-  (def fres {:status "finished|depleted|running"})
-  )
-
-
-(defn traverse
+;; This is some ancient version of traverse that expects a state table with keys such as
+;; :edge :test :func :next
+(defn old-traverse-that-i-made-worse
   "Must have a starting state aka edge. jump-stack initially is empty. Return a map with keys wait-next, msg."
   [curr-state jump-stack]
   (prn "traverse curr-state: " curr-state " js: " jump-stack)
-  (loop [st (sub-table curr-state table)]
+  (loop [st (sub-table curr-state @table)]
     (cond (empty? st)
           (do
             (prn "table is empty for edge: " curr-state)
@@ -147,11 +169,21 @@
                 fres)
               (recur (rest st)))))))
 
-
-(defn str-to-func
-  [xx]
-  (eval (symbol (or (not-empty xx) "fntrue"))))
-
+(defn traverse
+  [state]
+  (prn "state=" state)
+  (if (nil? state)
+    nil
+    (loop [tt (state @table)]
+      (let [curr (first tt)]
+        (prn "curr=" curr)
+        (if ((or (nth curr 0) fntrue))
+          (do
+            ;; Ideally there are no nil fns in the function dispatch func-dispatch column
+            ((or (nth curr 1) (fn [] false)))
+            (if (some? (nth curr 2))
+              (traverse (nth curr 2))))
+          (recur (rest tt)))))))
 
 (defn make-state "v2" [strvec]
   (mapv (comp 
@@ -171,7 +203,7 @@
 ;; table. Rather than printing a message we should set an error condition.
 (defn make-node
   "Create a seq of states for a given node. Returning a hashmap with the node as key and states as a vector."
-  [mapnode table]
+  [mapnode tmp-table]
   (let [[nkey nseq] mapnode]
     {nkey 
      (mapv (fn foo [xx]
@@ -179,7 +211,7 @@
                    keywrd (if (seq nexts) 
                             (keyword nexts)
                             nil)]
-                (if (some? (get table keywrd))
+                (if (some? (get tmp-table keywrd))
                   (assoc xx 2 keywrd)
                   (do
                     (if (seq nexts)
@@ -188,7 +220,7 @@
            nseq)}))
 
 (defn read-state-file []
-  (let [all-lines (slurp "states_test.dat")
+  (let [all-lines (slurp "states_test.dat") ;; (slurp "states.dat")
         lseq (rest (map (fn bar [one-line]
                           ;; It is important that this alway return a vector of 4 strings.
                           (let [this-line (mapv str/trim (str/split (clean-line one-line) #"\|"))]
@@ -196,51 +228,35 @@
                         (str/split all-lines #"\n")))
         good-lines (filterv (fn foo [xx] (> (count xx) 1)) lseq)
         edges (set (map first good-lines))
-        table (into {} (map  #(gather good-lines %) edges))
+        tmp-table (into {} (map  #(gather good-lines %) edges))
         ]
-    (into {} (mapv #(make-node % table) table))))
-
-
-(def table {})
-
-(defn traverse
-  [state]
-  (prn "state=" state)
-  (if (nil? state)
-    nil
-    (loop [tt (state table)]
-      (let [curr (first tt)]
-        (if (or (nil? curr) (nth curr 0))
-          (do
-            ((nth curr 1))
-            (if (some? (nth curr 2))
-              (traverse (nth curr 2))))
-          (recur (rest tt)))))))
+    (reset! table (into {} (mapv #(make-node % tmp-table) tmp-table)))))
 
 
 (defn demo []
   (reset-state)
-  (def table (read-state-file))
+  (read-state-file)
+  (println @table)
   (traverse :login)
   )
 
 (defn demo2 []
   (reset-state)
   (swap! app-state #(merge % {:if-logged-in true}))
-  (def table (read-state-file))
+  (read-state-file)
   (traverse :login)
   )
 
 (defn demo3 []
   (reset-state)
   (swap! app-state #(merge % {:if-logged-in true :if-on-dashboard true}))
-  (def table (read-state-file))
+  (read-state-file)
   (traverse :login))
 
 (defn demo4 []
   (reset-state)
-  (swap! app-state #(merge % {:if-logged-in true :if-want-dashboard true :if-moderator true}))
-  (def table (read-state-file))
+  (swap! app-state #(merge % {:if-logged-in true :if-on-dashboard false :if-want-dashboard true :if-moderator true}))
+  (read-state-file)
   (traverse :login))
 
 ;; state_test.edn is nearly identical to state_test.dat, but without the intentional missing
@@ -249,12 +265,13 @@
 (defn demo5
   "Just like demo4, but read a .edn file directly instead of parsing an orgtble formatted file"
   []
-  (def table (eval (read-string (slurp "state_test.edn"))))
+  (reset! table (eval (read-string (slurp "state_test.edn"))))
   (swap! app-state #(merge % {:if-logged-in true :if-want-dashboard true :if-moderator true}))
-  (traverse :login))       
+  (traverse :login))
 
 (defn -main
   "Parse the states.dat file."
   [& args]
-  (read-state-file))
+  (def logged-in-state true)
+  (demo))
 

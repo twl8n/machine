@@ -1,6 +1,32 @@
 #### machine
 
-* demo4 fails, perhaps because will-not-dashboard doesn't exist.
+cider keystrokes to remember
+C-c M-n         cider-ns-map
+C-c M-n n       cider-repl-set-ns
+C-c C-k         cider-load-buffer
+C-c C-e         cider-eval-last-sexp
+C-c M-i         cider-inspect
+C-c M-z         cider-load-buffer-and-switch-to-repl-buffer
+
+#### usage
+
+lein run
+
+In a cider repl:
+
+(def logged-in-state true)
+(demo)
+(demo4)
+
+The read-line loop was removed (deprecated). 
+
+#### todo
+
++ 2021-01-16 (def table (read-state-file)) inside defn causes the def to be eval'd at compile time (or early in run time) before the other defn's have been eval'd. This results in "Unable to resolve symbol: draw-dashboard-moderator in this context"
+
+It was always a bad idea to def, so switch to an atom.
+
++ 2021-01-16 * demo4 fails, perhaps because will-not-dashboard doesn't exist.
 Maybe if table has any fail during parsing, then exit.
 
 * upgrade state node vectors to a map for the sake of debugging, and
@@ -44,13 +70,6 @@ next call to sub-table
 
 (System/exit 0)
 
-#### usage
-
-(def logged-in-state true)
-(demo)
-
-Retur continues. Hit ^D several times to cancel. (demo) is in a read-line loop.
-
 #### notes
 
 (defn foo [xx] (str "this is foo " xx))
@@ -71,6 +90,6 @@ Workflow state machine ported to Clojure
 
 #### License
 
-Copyright © 2017 Tom Laudeman
+Copyright 2021 Tom Laudeman
 
 
