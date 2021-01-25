@@ -131,7 +131,7 @@
 (defn old-traverse-that-i-made-worse
   "Must have a starting state aka edge. jump-stack initially is empty. Return a map with keys wait-next, msg."
   [curr-state jump-stack]
-  (prn "traverse curr-state: " curr-state " js: " jump-stack)
+  (prn "old-traverse-that-i-made-worse curr-state: " curr-state " js: " jump-stack)
   (loop [st (sub-table curr-state @table)]
     (cond (empty? st)
           (do
@@ -148,19 +148,19 @@
           (let [smap (first st) ;; state map, state table
                 fres (if ((smap :test))
                        (cond (is-jump? (smap :func))
-                             (apply traverse (jump-to (smap :func) jump-stack))
+                             (apply old-traverse-that-i-made-worse (jump-to (smap :func) jump-stack))
                              (is-return? (smap :func))
-                             (traverse (first jump-stack) (rest jump-stack))
+                             (old-traverse-that-i-made-worse (first jump-stack) (rest jump-stack))
                              (is-wait? (smap :func))
                              (do
                                (prn "is-wait? true")
                                ;; (smap :next)
                                finished)
                              ((smap :func)) ;; never nil? because empty :func becomes fntrue
-                             (traverse (smap :next) jump-stack)
+                             (old-traverse-that-i-made-worse (smap :next) jump-stack)
                              :else
                              (if ((smap :func)) ;; (dispatch (smap :func))
-                                 (traverse (smap :next) jump-stack)))
+                                 (old-traverse-that-i-made-worse (smap :next) jump-stack)))
                        running)]
             (prn "fres: " fres " post-let js: " jump-stack " edge: " (smap :edge))
             (if (not (= fres running))
