@@ -2,7 +2,7 @@
   (:require [clojure.string :as str]
             [clojure.tools.namespace.repl :as tnr]
             [clojure.pprint :as pp])
-  (:gen-class))
+  ) ;; :name machine.core didn't help
 
 ;; https://github.com/clojure/tools.namespace
 ;; (tns/refresh)
@@ -272,6 +272,9 @@
 (defn -main
   "Parse the states.dat file."
   [& args]
+  ;; (in-ns 'machine.core)
+  (printf "current ns: %s raw: %s\n" (ns-name *ns*) *ns*)
   (def logged-in-state true)
-  (demo))
+  ;; (demo)
+  )
 

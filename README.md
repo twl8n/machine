@@ -10,6 +10,18 @@ C-c M-z         cider-load-buffer-and-switch-to-repl-buffer
 
 #### usage
 
+```
+clj
+> clj
+Clojure 1.9.0
+user=> (require 'machine.eval_symbol)
+nil
+user=> (ns machine.eval_symbol)
+nil
+machine.eval_symbol=> (-main)
+...
+```
+
 lein run
 
 In a cider repl:

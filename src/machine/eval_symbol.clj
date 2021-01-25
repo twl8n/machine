@@ -1,7 +1,9 @@
 (ns machine.eval_symbol
   (:gen-class))
 
-;; usage: lein run -m machine.eval_symbol
+;; usage:
+;; lein run -m machine.eval_symbol
+;; clojure -m machine.eval_symbol
 
 (defn my-precious-fn []
   (println "my-precious-fn runs"))
@@ -12,8 +14,8 @@
 
 (defn -main []
   (mapv #(printf "all-ns %s\n" %) (all-ns))
-  (in-ns 'machine.eval_symbol)
-  (printf "current ns: %s raw: %s\n" (ns-name *ns*) *ns*)
+  ;; (in-ns 'machine.eval_symbol)
+  (printf "****\ncurrent ns: %s raw: %s\n****\n" (ns-name *ns*) *ns*)
   (my-precious-fn)
   (printf "demo returns: %s type: %s\n" (demo) (type (demo)))
   (printf "= demo symbol: %s\n" (= (demo) 'my-precious-fn))
