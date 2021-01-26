@@ -1,6 +1,5 @@
 (ns machine.core
   (:require [clojure.string :as str]
-            [clojure.tools.namespace.repl :as tnr]
             [clojure.pprint :as pp])
   (:gen-class))
 ;; Workaround for the namespace changing to "user" after compile and before -main is invoked
@@ -111,6 +110,44 @@
 (defn sub-table [edge table]
   (edge table))
 
+(defn user-input [fn-name]
+  (cond (= fn-name (resolve 'fntrue)) (do (printf "Have fntrue, returning true.\n") (fntrue))
+        (= fn-name (resolve 'fnfalse)) (do (printf "Have fnfalse, returning false.\n" (fnfalse)))
+        :else
+        (do
+          (print "Function" fn-name ": ")
+          (flush)
+          (let [user-answer (if (= (read-line) "y")
+                              true
+                              false)]
+            (printf "%s\n" user-answer)
+            user-answer))))
+
+(defn noop [] (printf "running noop\n"))
+
+(defn traverse-debug
+  [state]
+  ;; (printf "state=%s\n" state)
+  (if (nil? state)
+    nil
+    (loop [tt (state @table)
+           xx 1]
+      (let [curr (first tt)]
+        ;; (printf "curr=%s\n" curr)
+
+        (if (or (> xx 5) (empty? (rest tt)) (user-input (nth curr 0)))
+          (do
+            ;; Ideally there are no nil fns in the function dispatch func-dispatch column
+            ((or (nth curr 1) (fn [] false)))
+            (if (some? (nth curr 2))
+              (traverse-debug (nth curr 2))))
+          (recur (rest tt) (inc xx)))
+
+        ))))
+
+(comment
+  (loop [tt [1 2 3]] (println tt) (if (seq (rest tt)) (recur (rest tt)) nil))
+  )
 
 (defn traverse
   [state]
@@ -202,6 +239,15 @@
   (read-state-file)
   (traverse :login))
 
+(defn demo4-debug []
+  (reset-state)
+  (swap! app-state #(merge % {:if-logged-in true :if-on-dashboard false :if-want-dashboard true :if-moderator true}))
+  (read-state-file)
+  (loop []
+    (traverse-debug :login)
+    (if (user-input "Go again?") (recur)
+        nil)))
+
 ;; state_test.edn is nearly identical to state_test.dat, but without the intentional missing
 ;; state :will-not-dashboard.
 
@@ -219,6 +265,6 @@
   (in-ns true-ns)
   (printf "current ns: %s raw: %s\n" (ns-name *ns*) *ns*)
   (def logged-in-state true)
-  (demo4)
+  (demo4-debug)
   )
 
