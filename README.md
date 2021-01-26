@@ -11,6 +11,14 @@ C-c M-z         cider-load-buffer-and-switch-to-repl-buffer
 #### usage
 
 ```
+clojure -m machine.core demo
+clojure -m machine.core demo2
+clojure -m machine.core demo3
+clojure -m machine.core demo4
+clojure -m machine.core demo4-debug
+```
+
+```
 clj
 > clj
 Clojure 1.9.0

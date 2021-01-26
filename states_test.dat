@@ -2,11 +2,12 @@
 |-----------------+-------------------+--------------------------+-----------------|
 |                 |                   |                          |                 |
 | login           | if-logged-in      | noop                     | pages           |
-| login           |                   | draw-login               | login-wait      |
-| login           |                   | wait                     |                 |
+| login           | fntrue            | force-logout             |                 |
+| login           | fntrue            | draw-login               |                 |
+| login           | fntrue            | wait                     |                 |
+|                 |                   |                          |                 |
 | login-input     | if-logged-in      | noop                     | dashboard       |
 | login-input     |                   | login                    | login           |
-| login-wait      |                   | wait                     |                 |
 |                 |                   |                          |                 |
 | pages           | if-on-dashboard   | noop                     | dashboard-input |
 | pages           | if-want-dashboard | noop                     | dashboard       |

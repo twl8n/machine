@@ -65,19 +65,20 @@
 (defn is-return? [arg] false)
 (defn jump-to [arg jstack] [arg (cons arg jstack)])
 
-(defn if-logged-in [] (let [rval (@app-state :if-logged-in)] (msg (str "ran if-logged-in: " rval)) rval))
-(defn if-moderator [] (let [rval (@app-state :if-moderator)] (msg (str "ran if-moderator: " rval)) rval))
+(defn if-logged-in [] (let [rval (@app-state :if-logged-in)] (msg (str "running if-logged-in: " rval)) rval))
+(defn if-moderator [] (let [rval (@app-state :if-moderator)] (msg (str "running if-moderator: " rval)) rval))
 (defn if-on-dashboard [] (let [rval (@app-state :if-on-dashboard)] (msg (str "if-on-dashboard: " rval)) rval))
 (defn if-want-dashboard [] (let [rval (@app-state :if-want-dashboard)] (msg (str "if-want-dashboard: " rval)) rval))
 
-(defn draw-login [] (msg "ran draw-login") true)
-(defn draw-dashboard-moderator [] (msg "ran draw-dashboard-moderator") true)
-(defn draw-dashboard [] (msg "ran draw-dashboard") true)
-(defn logout [] (msg "ran logout") true)
-(defn login [] (msg "ran login") true)
-(defn fntrue [] (msg "ran fntrue") true)
-(defn fnfalse [] (msg "ran fnfalse") false)
-(defn wait [] (msg "ran wait, returning false") false) ;; return false because wait "fails"?
+(defn draw-login [] (msg "running draw-login") true)
+(defn force-logout [] (msg "forcing logout") (swap! app-state #(apply dissoc %  [:if-logged-in])))
+(defn draw-dashboard-moderator [] (msg "running draw-dashboard-moderator") true)
+(defn draw-dashboard [] (msg "running draw-dashboard") true)
+(defn logout [] (msg "running logout") true)
+(defn login [] (msg "running login") true)
+(defn fntrue [] (msg "running fntrue") true)
+(defn fnfalse [] (msg "running fnfalse") false)
+(defn wait [] (msg "running wait, returning false") false) ;; return false because wait "fails"?
 
 (def str-to-func-hashmap
   {"if-logged-in" if-logged-in
@@ -139,8 +140,8 @@
           (do
             ;; Ideally there are no nil fns in the function dispatch func-dispatch column
             ((or (nth curr 1) (fn [] false)))
-            (if (some? (nth curr 2))
-              (traverse-debug (nth curr 2))))
+            (cond (some? (nth curr 2)) (traverse-debug (nth curr 2))
+                  (seq (rest tt)) (recur (rest tt) (inc xx))))
           (recur (rest tt) (inc xx)))
 
         ))))
@@ -157,12 +158,12 @@
     (loop [tt (state @table)]
       (let [curr (first tt)]
         (printf "curr=%s\n" curr)
-        (if ((or (nth curr 0) fntrue))
+        (if (or (empty? (rest tt)) ((nth curr 0))) ;; ((or (nth curr 0) fntrue))
           (do
             ;; Ideally there are no nil fns in the function dispatch func-dispatch column
-            ((or (nth curr 1) (fn [] false)))
-            (if (some? (nth curr 2))
-              (traverse (nth curr 2))))
+            ((or (nth curr 1) fnfalse))
+            (cond (some? (nth curr 2)) (traverse (nth curr 2))
+                  (seq (rest tt)) (recur (rest tt))))
           (recur (rest tt)))))))
 
 (defn make-state "v2" [strvec]
@@ -216,7 +217,7 @@
 (defn demo []
   (reset-state)
   (read-state-file)
-  (println @table)
+  (pp/pprint @table)
   (traverse :login)
   )
 
@@ -261,10 +262,15 @@
 (defn -main
   "Parse the states.dat file."
   [& args]
+  (printf "args: %s\n" args)
   ;; Workaround for the namespace changing to "user" after compile and before -main is invoked
   (in-ns true-ns)
-  (printf "current ns: %s raw: %s\n" (ns-name *ns*) *ns*)
-  (def logged-in-state true)
-  (demo4-debug)
-  )
 
+  (let [first-arg (nth args 0)]
+    (cond (= first-arg "demo") (demo)
+          (= first-arg "demo2") (demo2)
+          (= first-arg "demo3") (demo3)
+          (= first-arg "demo4") (demo4)
+          (= first-arg "demo4-debug") (demo4-debug)
+          :else
+          (demo))))
