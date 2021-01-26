@@ -100,80 +100,26 @@
 ;; 2021-01-25 Fixed by explicitly setting the runtime namespace
 (defn str-to-func
   [xx]
-  (let [symstr "draw-dashboard-moderator"]
-    (draw-dashboard-moderator)
-    (printf "symstr is %s\n" symstr)
-    (printf "delay for %s\n" (read-string symstr)))
   (if (empty? xx)
     (do 
-      (printf "xx is empty, returning %s\n" fnfalse)
-      fntrue)
+      ;; (printf "xx is empty, returning %s\n" 'fntrue)
+      (resolve 'fntrue))
     (let [symres (resolve (symbol xx))]
-      (printf "xx is %s, returning %s ddm is %s\n" xx symres (resolve (symbol "draw-dashboard-moderator")))
+      ;; (printf "xx is %s, returning %s ddm is %s\n" xx symres (resolve (symbol "draw-dashboard-moderator")))
       symres)))
 
 (defn sub-table [edge table]
   (edge table))
 
-;; The only :else for both cond's would be logging. The :else of the inner cond should never be reached.
-;; The :else of the outer cond happens all the time as we iterate through the current state.
-(defn old-sub-table
-  "String edge is a value of :edge, table is the entire state table. Returns only matches edges of the table."
-  [edge table]
-  (filter #(= (:edge %) edge) table))
-
-
-;; This is some ancient version of traverse that expects a state table with keys such as
-;; :edge :test :func :next
-(defn old-traverse-that-i-made-worse
-  "Must have a starting state aka edge. jump-stack initially is empty. Return a map with keys wait-next, msg."
-  [curr-state jump-stack]
-  (prn "old-traverse-that-i-made-worse curr-state: " curr-state " js: " jump-stack)
-  (loop [st (sub-table curr-state @table)]
-    (cond (empty? st)
-          (do
-            (prn "table is empty for edge: " curr-state)
-            ;; the table is normally empty when the recur returns nothing because we're done, but
-            ;; that should never happen, and right now it happens all the time, so the (if) logic
-            ;; to stop the recur is probably backward.
-            depleted)
-          (nil? (read-line)) ;; ^D will cause nil input
-          (do
-            (prn "read-line returned nil")
-            "halt")
-          :else
-          (let [smap (first st) ;; state map, state table
-                fres (if ((smap :test))
-                       (cond (is-jump? (smap :func))
-                             (apply old-traverse-that-i-made-worse (jump-to (smap :func) jump-stack))
-                             (is-return? (smap :func))
-                             (old-traverse-that-i-made-worse (first jump-stack) (rest jump-stack))
-                             (is-wait? (smap :func))
-                             (do
-                               (prn "is-wait? true")
-                               ;; (smap :next)
-                               finished)
-                             ((smap :func)) ;; never nil? because empty :func becomes fntrue
-                             (old-traverse-that-i-made-worse (smap :next) jump-stack)
-                             :else
-                             (if ((smap :func)) ;; (dispatch (smap :func))
-                                 (old-traverse-that-i-made-worse (smap :next) jump-stack)))
-                       running)]
-            (prn "fres: " fres " post-let js: " jump-stack " edge: " (smap :edge))
-            (if (not (= fres running))
-              (do
-                (prn "fres is " fres)
-                fres)
-              (recur (rest st)))))))
 
 (defn traverse
   [state]
-  (prn "state=" state)
+  (printf "state=%s\n" state)
   (if (nil? state)
     nil
     (loop [tt (state @table)]
       (let [curr (first tt)]
-        (prn "curr=" curr)
+        (printf "curr=%s\n" curr)
         (if ((or (nth curr 0) fntrue))
           (do
             ;; Ideally there are no nil fns in the function dispatch func-dispatch column
@@ -212,7 +158,7 @@
                   (assoc xx 2 keywrd)
                   (do
                     (if (seq nexts)
-                      (prn "Can't find=" keywrd)
+                      (printf "Can't find=" keywrd)
                       (assoc xx 2 nil))))))
            nseq)}))
 
