@@ -16,11 +16,7 @@
 (def running "running")
 (def halt "running")
 
-(defn msg [arg] (prn arg) (def _msg (str _msg "\n" arg)))
-
-(defn clrmsg [] (def _msg ""))
-
-(defn pmsg [] (println _msg))
+(defn msg [arg] (printf "%s\n" arg))
 
 (defn clean-line [str]
   (-> str
@@ -81,6 +77,7 @@
 (defn logout [] (msg "ran logout") true)
 (defn login [] (msg "ran login") true)
 (defn fntrue [] (msg "ran fntrue") true)
+(defn fnfalse [] (msg "ran fnfalse") false)
 (defn wait [] (msg "ran wait, returning false") false) ;; return false because wait "fails"?
 
 (def str-to-func-hashmap
@@ -109,7 +106,7 @@
     (printf "delay for %s\n" (read-string symstr)))
   (if (empty? xx)
     (do 
-      (printf "xx is empty, returning %s\n" fntrue)
+      (printf "xx is empty, returning %s\n" fnfalse)
       fntrue)
     (let [symres (resolve (symbol xx))]
       (printf "xx is %s, returning %s ddm is %s\n" xx symres (resolve (symbol "draw-dashboard-moderator")))
