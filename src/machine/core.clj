@@ -2,10 +2,9 @@
   (:require [clojure.string :as str]
             [clojure.tools.namespace.repl :as tnr]
             [clojure.pprint :as pp])
-  ) ;; :name machine.core didn't help
-
-;; https://github.com/clojure/tools.namespace
-;; (tns/refresh)
+  (:gen-class))
+;; Workaround for the namespace changing to "user" after compile and before -main is invoked
+(def true-ns (ns-name *ns*))
 
 ;; fres status values
 ;; finished is a function ran
@@ -71,10 +70,10 @@
 (defn is-return? [arg] false)
 (defn jump-to [arg jstack] [arg (cons arg jstack)])
 
-(defn if-logged-in [] (msg "ran if-logged-in") (@app-state :if-logged-in))
-(defn if-moderator [] (msg "ran if-moderator") (@app-state :if-moderator))
-(defn if-on-dashboard [] (msg "if-on-dashboard") (@app-state :if-on-dashboard))
-(defn if-want-dashboard [] (msg "if-want-dashboard") (@app-state :if-want-dashboard))
+(defn if-logged-in [] (let [rval (@app-state :if-logged-in)] (msg (str "ran if-logged-in: " rval)) rval))
+(defn if-moderator [] (let [rval (@app-state :if-moderator)] (msg (str "ran if-moderator: " rval)) rval))
+(defn if-on-dashboard [] (let [rval (@app-state :if-on-dashboard)] (msg (str "if-on-dashboard: " rval)) rval))
+(defn if-want-dashboard [] (let [rval (@app-state :if-want-dashboard)] (msg (str "if-want-dashboard: " rval)) rval))
 
 (defn draw-login [] (msg "ran draw-login") true)
 (defn draw-dashboard-moderator [] (msg "ran draw-dashboard-moderator") true)
@@ -97,11 +96,12 @@
    "fntrue" fntrue
    "wait" wait})
 
-(defn str-to-func [xx]
+(defn new-str-to-func [xx]
   (get str-to-func-hashmap xx))
   
 ;; 2021-01-16 resolving symbols at runtime isn't working in lein. 
-(defn bad-str-to-func
+;; 2021-01-25 Fixed by explicitly setting the runtime namespace
+(defn str-to-func
   [xx]
   (let [symstr "draw-dashboard-moderator"]
     (draw-dashboard-moderator)
@@ -272,9 +272,10 @@
 (defn -main
   "Parse the states.dat file."
   [& args]
-  ;; (in-ns 'machine.core)
+  ;; Workaround for the namespace changing to "user" after compile and before -main is invoked
+  (in-ns true-ns)
   (printf "current ns: %s raw: %s\n" (ns-name *ns*) *ns*)
   (def logged-in-state true)
-  ;; (demo)
+  (demo4)
   )
 
