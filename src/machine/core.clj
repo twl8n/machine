@@ -70,15 +70,15 @@
 (defn if-on-dashboard [] (let [rval (@app-state :if-on-dashboard)] (msg (str "if-on-dashboard: " rval)) rval))
 (defn if-want-dashboard [] (let [rval (@app-state :if-want-dashboard)] (msg (str "if-want-dashboard: " rval)) rval))
 
-(defn draw-login [] (msg "running draw-login") true)
-(defn force-logout [] (msg "forcing logout") (swap! app-state #(apply dissoc %  [:if-logged-in])))
-(defn draw-dashboard-moderator [] (msg "running draw-dashboard-moderator") true)
-(defn draw-dashboard [] (msg "running draw-dashboard") true)
-(defn logout [] (msg "running logout") true)
-(defn login [] (msg "running login") true)
+(defn draw-login [] (msg "running draw-login") false)
+(defn force-logout [] (msg "forcing logout") (swap! app-state #(apply dissoc %  [:if-logged-in])) false)
+(defn draw-dashboard-moderator [] (msg "running draw-dashboard-moderator") false)
+(defn draw-dashboard [] (msg "running draw-dashboard") false)
+(defn logout [] (msg "running logout") false)
+(defn login [] (msg "running login") false)
 (defn fntrue [] (msg "running fntrue") true)
 (defn fnfalse [] (msg "running fnfalse") false)
-(defn wait [] (msg "running wait, returning false") false) ;; return false because wait "fails"?
+(defn wait [] (msg "running wait, returning false") true) ;; return true because wait ends looping over tests
 
 (def str-to-func-hashmap
   {"if-logged-in" if-logged-in
@@ -111,9 +111,22 @@
 (defn sub-table [edge table]
   (edge table))
 
+(defn go-again []
+  (print "Go again?")
+  (flush)
+  (let [user-answer (if (= (read-line) "y")
+                      true
+                      false)]
+    (printf "%s\n" user-answer)
+    user-answer))
+
+;; 2021-01-26 Prompt user for any if- functions, but simply run the other functions which should all return false.
+;; If they return false, why do we run them??
+
 (defn user-input [fn-name]
   (cond (= fn-name (resolve 'fntrue)) (do (printf "Have fntrue, returning true.\n") (fntrue))
         (= fn-name (resolve 'fnfalse)) (do (printf "Have fnfalse, returning false.\n" (fnfalse)))
+        (nil? (re-find #"/if-" (str fn-name))) (fn-name)
         :else
         (do
           (print "Function" fn-name ": ")
@@ -126,6 +139,8 @@
 
 (defn noop [] (printf "running noop\n"))
 
+;; Loop through tests (nth curr 0) while tests are false, until hitting wait.
+;; Stop looping  if test is true, and change to the next-state-edge (nth curr 2).
 (defn traverse-debug
   [state]
   ;; (printf "state=%s\n" state)
@@ -133,22 +148,16 @@
     nil
     (loop [tt (state @table)
            xx 1]
-      (let [curr (first tt)]
+      (let [curr (first tt)
+            test-result (user-input (nth curr 0))]
         ;; (printf "curr=%s\n" curr)
-
-        (if (or (> xx 5) (empty? (rest tt)) (user-input (nth curr 0)))
-          (do
-            ;; Ideally there are no nil fns in the function dispatch func-dispatch column
-            ((or (nth curr 1) (fn [] false)))
-            (cond (some? (nth curr 2)) (traverse-debug (nth curr 2))
-                  (seq (rest tt)) (recur (rest tt) (inc xx))))
-          (recur (rest tt) (inc xx)))
-
+        (cond test-result (if (some? (nth curr 2))
+                              (traverse-debug (nth curr 2))
+                              nil)
+              (seq (rest tt)) (recur (rest tt) (inc xx))
+              :else nil)
         ))))
 
-(comment
-  (loop [tt [1 2 3]] (println tt) (if (seq (rest tt)) (recur (rest tt)) nil))
-  )
 
 (defn traverse
   [state]
@@ -156,15 +165,25 @@
   (if (nil? state)
     nil
     (loop [tt (state @table)]
-      (let [curr (first tt)]
+      (let [curr (first tt)
+            test-result ((nth curr 0))]
         (printf "curr=%s\n" curr)
-        (if (or (empty? (rest tt)) ((nth curr 0))) ;; ((or (nth curr 0) fntrue))
-          (do
-            ;; Ideally there are no nil fns in the function dispatch func-dispatch column
-            ((or (nth curr 1) fnfalse))
-            (cond (some? (nth curr 2)) (traverse (nth curr 2))
-                  (seq (rest tt)) (recur (rest tt))))
-          (recur (rest tt)))))))
+        (cond test-result (if (some? (nth curr 2))
+                              (traverse (nth curr 2))
+                              nil)
+              (seq (rest tt)) (recur (rest tt))
+              :else nil)
+        ))))
+
+;; (if (or (empty? (rest tt)) ((nth curr 0))) ;; ((or (nth curr 0) fntrue))
+;;   (do
+;;     ;; Ideally there are no nil fns in the function dispatch func-dispatch column
+;;     ;; 2021-01-26 stop using nth-1 func-dispatch of state table 
+;;     ;; ((or (nth curr 1) fnfalse))
+;;     (cond (some? (nth curr 2)) (traverse (nth curr 2))
+;;           (seq (rest tt)) (recur (rest tt))))
+;;   (recur (rest tt)))))))
+
 
 (defn make-state "v2" [strvec]
   (mapv (comp 
@@ -225,6 +244,7 @@
   (reset-state)
   (swap! app-state #(merge % {:if-logged-in true}))
   (read-state-file)
+  (println "initial state:" @app-state)
   (traverse :login)
   )
 
@@ -232,21 +252,23 @@
   (reset-state)
   (swap! app-state #(merge % {:if-logged-in true :if-on-dashboard true}))
   (read-state-file)
+  (println "initial state:" @app-state)
   (traverse :login))
 
 (defn demo4 []
   (reset-state)
   (swap! app-state #(merge % {:if-logged-in true :if-on-dashboard false :if-want-dashboard true :if-moderator true}))
   (read-state-file)
+  (println "initial state:" @app-state)
   (traverse :login))
 
 (defn demo4-debug []
   (reset-state)
-  (swap! app-state #(merge % {:if-logged-in true :if-on-dashboard false :if-want-dashboard true :if-moderator true}))
+  ;; Setting app-state makes no sense in a debug setting. The user will answer all the if- state tests.
   (read-state-file)
   (loop []
     (traverse-debug :login)
-    (if (user-input "Go again?") (recur)
+    (if (go-again) (recur)
         nil)))
 
 ;; state_test.edn is nearly identical to state_test.dat, but without the intentional missing

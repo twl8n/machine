@@ -1,25 +1,26 @@
-| state-edge      | test              | func-dispatch            | next-state-edge |
-|-----------------+-------------------+--------------------------+-----------------|
-|                 |                   |                          |                 |
-| login           | if-logged-in      | noop                     | pages           |
-| login           | fntrue            | force-logout             |                 |
-| login           | fntrue            | draw-login               |                 |
-| login           | fntrue            | wait                     |                 |
-|                 |                   |                          |                 |
-| login-input     | if-logged-in      | noop                     | dashboard       |
-| login-input     |                   | login                    | login           |
-|                 |                   |                          |                 |
-| pages           | if-on-dashboard   | noop                     | dashboard-input |
-| pages           | if-want-dashboard | noop                     | dashboard       |
-| pages           |                   | wait                     |                 |
-|                 |                   |                          |                 |
-| dashboard       | if-moderator      | draw-dashboard-moderator | dashboard-wait  |
-| dashboard       |                   | draw-dashboard           | dashboard-wait  |
-|                 |                   |                          |                 |
-| dashboard-input |                   | wait                     |                 |
-|                 |                   |                          |                 |
-| dashboard-wait  |                   | wait                     |                 |
-| logout          |                   | logout                   | login           |
-|                 |                   |                          |                 |
+| state-edge          | test                     | func-dispatch | next-state-edge     |
+|---------------------+--------------------------+---------------+---------------------|
+|                     |                          |               |                     |
+| login               | if-logged-in             |               | pages               |
+| login               | force-logout             |               |                     |
+| login               | draw-login               |               |                     |
+| login               | wait                     |               |                     |
+|                     |                          |               |                     |
+| login-input         | if-logged-in             |               | dashboard           |
+| login-input         | login                    |               | login               |
+|                     |                          |               |                     |
+| pages               | if-on-dashboard          |               | dashboard-input     |
+| pages               | if-want-dashboard        |               | dashboard           |
+| pages               | wait                     |               |                     |
+|                     |                          |               |                     |
+| dashboard           | if-moderator             |               | dashboard-moderator |
+| dashboard           | draw-dashboard           |               |                     |
+| dashboard           | wait                     |               |                     |
+|                     |                          |               |                     |
+| dashboard-moderator | draw-dashboard-moderator |               | dashboard-input     |
+|                     |                          |               |                     |
+| dashboard-input     | wait                     |               |                     |
+|                     |                          |               |                     |
+
 
 
