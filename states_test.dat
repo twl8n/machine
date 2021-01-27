@@ -1,4 +1,4 @@
-| state-edge          | test                     | func-dispatch | next-state-edge     |
+| state-edge          | test-or-func             | func-dispatch | next-state-edge     |
 |---------------------+--------------------------+---------------+---------------------|
 |                     |                          |               |                     |
 | login               | if-logged-in             |               | pages               |
