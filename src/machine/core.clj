@@ -84,7 +84,10 @@
 
 
 (defn demo []
-  (reset-state)
+  (add-state :if-logged-in)
+  (add-state :if-moderator)
+  (add-state :if-want-dashboard)
+  ;; (reset-state)
   ;; (pp/pprint @machine.state/table)
   (traverse :login)
   )

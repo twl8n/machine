@@ -7,19 +7,10 @@
 (def app-state (atom {}))
 
 (defn reset-state [] 
-  (swap! app-state (fn [foo]
-                      {:if-logged-in false
-                       :if-moderator false
-                       :if-on-dashboard false
-                       :if-want-dashboard false})))
+  (swap! app-state (fn [foo] {})))
 
-;; function names are symbols
-(defn ex1 []
-  (defn baz [] (prn "fn baz"))
-  (prn "first:")
-  ((:foo {:foo (eval (read-string "baz"))}))
-  (prn "second:")
-  ((:foo {:foo (eval 'baz)})))
+(defn add-state [new-kw]
+  (swap! app-state #(apply assoc % [new-kw true])))
 
 (defn is-jump? [arg] false)
 
@@ -37,8 +28,10 @@
 
 (defn draw-login [] (msg "running draw-login") false)
 (defn force-logout [] (msg "forcing logout") (swap! app-state #(apply dissoc %  [:if-logged-in])) false)
-(defn draw-dashboard-moderator [] (msg "running draw-dashboard-moderator") false)
+(defn draw-dashboard-moderator [] (add-state :if-on-dashboard)  (msg "running draw-dashboard-moderator") false)
+
 (defn draw-dashboard [] (msg "running draw-dashboard") false)
+
 (defn logout [] (msg "running logout") false)
 (defn login [] (msg "running login") false)
 (defn fntrue [] (msg "running fntrue") true)
