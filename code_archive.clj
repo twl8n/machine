@@ -1,3 +1,77 @@
+(defn old-read-state-file []
+  (let [all-lines (slurp "states_test.dat") ;; (slurp "states.dat")
+        lseq (rest (map (fn bar [one-line]
+                          ;; It is important that this alway return a vector of 4 strings.
+                          (let [this-line (mapv str/trim (str/split (clean-line one-line) #"\|"))]
+                            this-line))
+                        (str/split all-lines #"\n")))
+        good-lines (filterv (fn foo [xx] (> (count xx) 1)) lseq)
+        edges (set (map first good-lines))
+        tmp-table (into {} (map  #(gather good-lines %) edges))
+        ]
+    (reset! @machine.state/table (into {} (mapv #(make-node % tmp-table) tmp-table)))))
+
+(def str-to-func-hashmap
+  {"if-logged-in" if-logged-in
+   "if-moderator" if-moderator
+   "if-on-dashboard" if-on-dashboard
+   "if-want-dashboard" if-want-dashboard
+   "draw-login" draw-login
+   "draw-dashboard-moderator" draw-dashboard-moderator
+   "draw-dashboard" draw-dashboard
+   "logout" logout
+   "login" login
+   "fntrue" fntrue
+   "wait" wait})
+
+(defn new-str-to-func [xx]
+  (get str-to-func-hashmap xx))
+  
+
+(defn make-state "v2" [strvec]
+  (mapv (comp 
+         (fn [xx] (update-in xx [0] str-to-func))
+         (fn [xx] (update-in xx [1] str-to-func))
+         )
+        strvec))
+
+
+(defn gather [good-lines edge]
+  (let [fv (filterv #(= (first %) edge) good-lines)
+        elines (mapv #(vec (rest %)) fv)
+        state-vec (make-state elines)]
+    {(keyword edge) state-vec}))
+
+;; The table is the full table, just not in a map form. We can check that nexts is an existing key in the
+;; table. Rather than printing a message we should set an error condition.
+(defn make-node
+  "Create a seq of states for a given node. Returning a hashmap with the node as key and states as a vector."
+  [mapnode tmp-table]
+  (let [[nkey nseq] mapnode]
+    {nkey 
+     (mapv (fn foo [xx]
+             (let [nexts (nth xx 2 nil)
+                   keywrd (if (seq nexts) 
+                            (keyword nexts)
+                            nil)]
+                (if (some? (get tmp-table keywrd))
+                  (assoc xx 2 keywrd)
+                  (do
+                    (if (seq nexts)
+                      (printf "Can't find=" keywrd)
+                      (assoc xx 2 nil))))))
+           nseq)}))
+
+;; state_test.edn is nearly identical to state_test.dat, but without the intentional missing
+;; state :will-not-dashboard.
+
+;; (defn demo5
+;;   "Just like demo4, but read a .edn file directly instead of parsing an orgtble formatted file"
+;;   []
+;;   (reset! @machine.state/table (eval (read-string (slurp "state_test.edn"))))
+;;   (swap! app-state #(merge % {:if-logged-in true :if-want-dashboard true :if-moderator true}))
+;;   (traverse :login))
+
   (defn old-traverse
   "Must have a starting state aka edge. jump-stack initially is empty. Return a map with keys wait-next, msg."
   [curr-state jump-stack]

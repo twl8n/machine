@@ -20,7 +20,7 @@ If true then run func-dispatch, and switch context to next-stage-edge.
 If false, loop (to the next row of the state table).
 Stop when no more rows or upon running the wait function.
 
-version 2: (current version) all test and dispatch functions are in the test-or-func column; func-dispatch column is unused.
+version 2: all test and dispatch functions are in the test-or-func column; func-dispatch column is unused.
 
 Start with some state-edge (login).
 Loop over all rows running the test-or-func function for this state-edge.
@@ -28,7 +28,7 @@ If true then switch context to the next-stage-edge
 If false, continue looping through the rows.
 Stop when no more rows or upon running the wait function.
 
-version 3: (future)
+version 3: (current)
 
 Start with some state-edge (login).
 Loop over all rows running the test-or-func function for this state-edge.

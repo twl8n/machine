@@ -47,38 +47,36 @@
 (defn fntrue [] (msg "running fntrue") true)
 (defn fnfalse [] (msg "running fnfalse") false)
 (defn wait [] (msg "running wait, returning false") true) ;; return true because wait ends looping over tests
+(defn noop [] (printf "running noop\n"))
 
 
+;; {:state-edge [[test-or-func next-state-edge] ...]}
+(def table
+  (atom
+   {:login
+    [[if-logged-in :pages]
+     [force-logout nil]
+     [draw-login nil]
+     [wait nil]]
+    
+    :login-input
+    [[if-logged-in :dashboard]
+     [login :login]]
 
-(def table (atom
-            ;; {:state-edge [[test-or-func next-state-edge] ...]}
-            {:login
-             [[if-logged-in :pages]
-              [force-logout nil]
-              [draw-login nil]
-              [wait nil]]
-             
-             :login-input
-             [[if-logged-in :dashboard]
-              [login :login]]
+    :pages
+    [[if-on-dashboard :dashboard-input]
+     [if-want-dashboard :dashboard]
+     [wait nil]]
 
-             :pages
-             [[if-on-dashboard :dashboard-input]
-              [if-want-dashboard :dashboard]
-              [wait nil]]
+    :dashboard
+    [[if-moderator :dashboard-moderator]
+     [draw-dashboard]
+     [wait nil]]
 
-             :dashboard
-             [[if-moderator :dashboard-moderator]
-              [draw-dashboard]
-              [wait nil]]
+    :dashboard-moderator
+    [[draw-dashboard-moderator :dashboard-input]]
 
-             :dashboard-moderator
-             [[draw-dashboard-moderator :dashboard-input]]
+    :dashboard-input
+    [[wait nil]]
+    }))
 
-             :dashboard-input
-             [[wait nil]]
-             }))
-
-;; It should not be necessary to init the table, since the first thing is always to read it in off disk.
-(defn init-table-if-you-need-to []
-  (reset! table ([{:edge "login", :test "if-logged-in", :func "", :next "pages"}])))
