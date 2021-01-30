@@ -7,28 +7,8 @@
 ;; Workaround for the namespace changing to "user" after compile and before -main is invoked
 (def true-ns (ns-name *ns*))
 
-(defn clean-line [str]
-  (-> str
-      (str/replace #"^\|\s*" "")
-      (str/replace #"^\-\-.*" "")
-      (str/replace #"^\s*#.*" "")
-      (str/replace #"^[\s\|]*$" "")
-      ))
-
 ;; http://stackoverflow.com/questions/6135764/when-to-use-zipmap-and-when-map-vector
 ;; Use (zipmap ...) when you want to directly construct a hashmap from separate sequences of keys and values. The output is a hashmap:
-
-;; 2021-01-16 resolving symbols at runtime isn't working in lein. 
-;; 2021-01-25 Fixed by explicitly setting the runtime namespace
-(defn str-to-func
-  [xx]
-  (if (empty? xx)
-    (do 
-      ;; (printf "xx is empty, returning %s\n" 'fntrue)
-      (resolve 'fntrue))
-    (let [symres (resolve (symbol xx))]
-      ;; (printf "xx is %s, returning %s ddm is %s\n" xx symres (resolve (symbol "draw-dashboard-moderator")))
-      symres)))
 
 (defn sub-table [edge table]
   (edge table))
@@ -67,6 +47,7 @@
             (printf "%s\n" user-answer)
             user-answer))))
 
+
 ;; Loop through tests (nth curr 0) while tests are false, until hitting wait.
 ;; Stop looping  if test is true, and change to the next-state-edge (nth curr 2).
 (defn traverse-debug
@@ -83,8 +64,7 @@
                               (traverse-debug (nth curr 1))
                               nil)
               (seq (rest tt)) (recur (rest tt) (inc xx))
-              :else nil)
-        ))))
+              :else nil)))))
 
 
 (defn traverse
@@ -100,13 +80,12 @@
                               (traverse (nth curr 1))
                               nil)
               (seq (rest tt)) (recur (rest tt))
-              :else nil)
-        ))))
+              :else nil)))))
 
 
 (defn demo []
   (reset-state)
-  (pp/pprint @machine.state/table)
+  ;; (pp/pprint @machine.state/table)
   (traverse :login)
   )
 

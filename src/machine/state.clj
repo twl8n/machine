@@ -1,6 +1,5 @@
 (ns machine.state
-  (:require ;; [machine.core :refer :all]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [clojure.pprint :as pp]))
 
 (defn msg [arg] (printf "%s\n" arg))
@@ -21,8 +20,6 @@
   ((:foo {:foo (eval (read-string "baz"))}))
   (prn "second:")
   ((:foo {:foo (eval 'baz)})))
-
-;; (defn dispatch [func] (msg (str "dispatch called: " func)) (func))
 
 (defn is-jump? [arg] false)
 

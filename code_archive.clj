@@ -1,3 +1,23 @@
+(defn clean-line [str]
+  (-> str
+      (str/replace #"^\|\s*" "")
+      (str/replace #"^\-\-.*" "")
+      (str/replace #"^\s*#.*" "")
+      (str/replace #"^[\s\|]*$" "")
+      ))
+
+;; 2021-01-16 resolving symbols at runtime isn't working in lein. 
+;; 2021-01-25 Fixed by explicitly setting the runtime namespace
+(defn str-to-func
+  [xx]
+  (if (empty? xx)
+    (do 
+      ;; (printf "xx is empty, returning %s\n" 'fntrue)
+      (resolve 'fntrue))
+    (let [symres (resolve (symbol xx))]
+      ;; (printf "xx is %s, returning %s ddm is %s\n" xx symres (resolve (symbol "draw-dashboard-moderator")))
+      symres)))
+
 (defn old-read-state-file []
   (let [all-lines (slurp "states_test.dat") ;; (slurp "states.dat")
         lseq (rest (map (fn bar [one-line]
