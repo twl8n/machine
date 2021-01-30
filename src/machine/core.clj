@@ -1,7 +1,9 @@
 (ns machine.core
-  (:require [clojure.string :as str]
+  (:require [machine.state :refer :all]
+            [clojure.string :as str]
             [clojure.pprint :as pp])
   (:gen-class))
+
 ;; Workaround for the namespace changing to "user" after compile and before -main is invoked
 (def true-ns (ns-name *ns*))
 
@@ -15,8 +17,6 @@
 (def running "running")
 (def halt "running")
 
-(defn msg [arg] (printf "%s\n" arg))
-
 (defn clean-line [str]
   (-> str
       (str/replace #"^\|\s*" "")
@@ -25,60 +25,8 @@
       (str/replace #"^[\s\|]*$" "")
       ))
 
-(def col-name [:edge :test :func :next])
-
 ;; http://stackoverflow.com/questions/6135764/when-to-use-zipmap-and-when-map-vector
 ;; Use (zipmap ...) when you want to directly construct a hashmap from separate sequences of keys and values. The output is a hashmap:
-
-;; table is a global, read only.
-(def table (atom []))
-
-;; It should not be necessary to init the table, since the first thing is always to read it in off disk.
-(defn init-table-if-you-need-to []
-  (reset! table ([{:edge "login", :test "if-logged-in", :func "", :next "pages"}])))
-
-(def app-state (atom {}))
-
-(defn reset-state [] 
-  (swap! app-state (fn [foo]
-                      {:if-logged-in false
-                       :if-moderator false
-                       :if-on-dashboard false
-                       :if-want-dashboard false})))
-
-;; function names are symbols
-(defn ex1 []
-  (defn baz [] (prn "fn baz"))
-  (prn "first:")
-  ((:foo {:foo (eval (read-string "baz"))}))
-  (prn "second:")
-  ((:foo {:foo (eval 'baz)})))
-
-(defn dispatch [func] (msg (str "dispatch called: " func)) (func))
-
-(defn is-jump? [arg] false)
-
-(defn is-wait?
-  "(str (type arg)) is something like class machine.core$wait"
-  [arg] (= "$wait" (re-find #"\$wait" (str (type arg)))))
-
-(defn is-return? [arg] false)
-(defn jump-to [arg jstack] [arg (cons arg jstack)])
-
-(defn if-logged-in [] (let [rval (@app-state :if-logged-in)] (msg (str "running if-logged-in: " rval)) rval))
-(defn if-moderator [] (let [rval (@app-state :if-moderator)] (msg (str "running if-moderator: " rval)) rval))
-(defn if-on-dashboard [] (let [rval (@app-state :if-on-dashboard)] (msg (str "if-on-dashboard: " rval)) rval))
-(defn if-want-dashboard [] (let [rval (@app-state :if-want-dashboard)] (msg (str "if-want-dashboard: " rval)) rval))
-
-(defn draw-login [] (msg "running draw-login") false)
-(defn force-logout [] (msg "forcing logout") (swap! app-state #(apply dissoc %  [:if-logged-in])) false)
-(defn draw-dashboard-moderator [] (msg "running draw-dashboard-moderator") false)
-(defn draw-dashboard [] (msg "running draw-dashboard") false)
-(defn logout [] (msg "running logout") false)
-(defn login [] (msg "running login") false)
-(defn fntrue [] (msg "running fntrue") true)
-(defn fnfalse [] (msg "running fnfalse") false)
-(defn wait [] (msg "running wait, returning false") true) ;; return true because wait ends looping over tests
 
 (def str-to-func-hashmap
   {"if-logged-in" if-logged-in
@@ -123,10 +71,18 @@
 ;; 2021-01-26 Prompt user for any if- functions, but simply run the other functions which should all return false.
 ;; If they return false, why do we run them??
 
+;; Functions have two string-ish name formats:
+;; #function[machine.core/if-logged-in]
+;; "machine.core$if_logged_in@5df2f577"
+;; The regex to identify an "if-" function varies depending on type of fn-name.
+;; (re-find #"\$if_" (str fn-name))
+;; (re-find #"/if-" (str fn-name))
+
 (defn user-input [fn-name]
+  (printf "user-input fn-name: %s\n" fn-name)
   (cond (= fn-name (resolve 'fntrue)) (do (printf "Have fntrue, returning true.\n") (fntrue))
         (= fn-name (resolve 'fnfalse)) (do (printf "Have fnfalse, returning false.\n" (fnfalse)))
-        (nil? (re-find #"/if-" (str fn-name))) (fn-name)
+        (nil? (re-find #"\$if_" (str fn-name))) (fn-name)
         :else
         (do
           (print "Function" fn-name ": ")
@@ -146,13 +102,13 @@
   ;; (printf "state=%s\n" state)
   (if (nil? state)
     nil
-    (loop [tt (state @table)
+    (loop [tt (state @machine.state/table)
            xx 1]
       (let [curr (first tt)
             test-result (user-input (nth curr 0))]
         ;; (printf "curr=%s\n" curr)
-        (cond test-result (if (some? (nth curr 2))
-                              (traverse-debug (nth curr 2))
+        (cond test-result (if (some? (nth curr 1))
+                              (traverse-debug (nth curr 1))
                               nil)
               (seq (rest tt)) (recur (rest tt) (inc xx))
               :else nil)
@@ -164,25 +120,17 @@
   (printf "state=%s\n" state)
   (if (nil? state)
     nil
-    (loop [tt (state @table)]
+    (loop [tt (state @machine.state/table)]
       (let [curr (first tt)
             test-result ((nth curr 0))]
         (printf "curr=%s\n" curr)
-        (cond test-result (if (some? (nth curr 2))
-                              (traverse (nth curr 2))
+        (cond test-result (if (some? (nth curr 1))
+                              (traverse (nth curr 1))
                               nil)
               (seq (rest tt)) (recur (rest tt))
               :else nil)
         ))))
 
-;; (if (or (empty? (rest tt)) ((nth curr 0))) ;; ((or (nth curr 0) fntrue))
-;;   (do
-;;     ;; Ideally there are no nil fns in the function dispatch func-dispatch column
-;;     ;; 2021-01-26 stop using nth-1 func-dispatch of state table 
-;;     ;; ((or (nth curr 1) fnfalse))
-;;     (cond (some? (nth curr 2)) (traverse (nth curr 2))
-;;           (seq (rest tt)) (recur (rest tt))))
-;;   (recur (rest tt)))))))
 
 
 (defn make-state "v2" [strvec]
@@ -219,7 +167,9 @@
                       (assoc xx 2 nil))))))
            nseq)}))
 
-(defn read-state-file []
+(defn read-state-file [] )
+
+(defn old-read-state-file []
   (let [all-lines (slurp "states_test.dat") ;; (slurp "states.dat")
         lseq (rest (map (fn bar [one-line]
                           ;; It is important that this alway return a vector of 4 strings.
@@ -230,13 +180,13 @@
         edges (set (map first good-lines))
         tmp-table (into {} (map  #(gather good-lines %) edges))
         ]
-    (reset! table (into {} (mapv #(make-node % tmp-table) tmp-table)))))
+    (reset! @machine.state/table (into {} (mapv #(make-node % tmp-table) tmp-table)))))
 
 
 (defn demo []
   (reset-state)
   (read-state-file)
-  (pp/pprint @table)
+  (pp/pprint @machine.state/table)
   (traverse :login)
   )
 
@@ -274,12 +224,12 @@
 ;; state_test.edn is nearly identical to state_test.dat, but without the intentional missing
 ;; state :will-not-dashboard.
 
-(defn demo5
-  "Just like demo4, but read a .edn file directly instead of parsing an orgtble formatted file"
-  []
-  (reset! table (eval (read-string (slurp "state_test.edn"))))
-  (swap! app-state #(merge % {:if-logged-in true :if-want-dashboard true :if-moderator true}))
-  (traverse :login))
+;; (defn demo5
+;;   "Just like demo4, but read a .edn file directly instead of parsing an orgtble formatted file"
+;;   []
+;;   (reset! @machine.state/table (eval (read-string (slurp "state_test.edn"))))
+;;   (swap! app-state #(merge % {:if-logged-in true :if-want-dashboard true :if-moderator true}))
+;;   (traverse :login))
 
 (defn -main
   "Parse the states.dat file."
