@@ -28,7 +28,7 @@ If true then switch context to the next-stage-edge
 If false, continue looping through the rows.
 Stop when no more rows or upon running the wait function.
 
-version 3: (current)
+version 3: (current) First column is either if- or side-effect function. Traverse state if/functions until true or end. When an if- test is true, branch to the named state.
 
 Start with some state-edge (login).
 Loop over all rows running the test-or-func function for this state-edge.
