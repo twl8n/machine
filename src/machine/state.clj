@@ -21,14 +21,20 @@
 (defn is-return? [arg] false)
 (defn jump-to [arg jstack] [arg (cons arg jstack)])
 
-(defn if-logged-in [] (let [rval (@app-state :if-logged-in)] (msg (str "running if-logged-in: " rval)) rval))
-(defn if-moderator [] (let [rval (@app-state :if-moderator)] (msg (str "running if-moderator: " rval)) rval))
-(defn if-on-dashboard [] (let [rval (@app-state :if-on-dashboard)] (msg (str "if-on-dashboard: " rval)) rval))
-(defn if-want-dashboard [] (let [rval (@app-state :if-want-dashboard)] (msg (str "if-want-dashboard: " rval)) rval))
+;; (if-arg :item)
+;; After testing for state, the tested key is removed to prevent infinite looping.
+;; That seems wrong, and has to be a temp fix.
+(defn if-arg [tkey]
+  (if (:test-mode @app-state)
+    tkey
+    (let [tval (tkey @app-state)
+          ret (and (seq tval) tval)]
+      (swap! app-state #(dissoc % tkey))
+      (boolean ret))))
 
 (defn draw-login [] (msg "running draw-login") false)
-(defn force-logout [] (msg "forcing logout") (swap! app-state #(apply dissoc %  [:if-logged-in])) false)
-(defn draw-dashboard-moderator [] (add-state :if-on-dashboard)  (msg "running draw-dashboard-moderator") false)
+(defn force-logout [] (msg "forcing logout") (swap! app-state #(apply dissoc %  [:logged-in])) false)
+(defn draw-dashboard-moderator [] (add-state :on-dashboard)  (msg "running draw-dashboard-moderator") false)
 
 (defn draw-dashboard [] (msg "running draw-dashboard") false)
 
@@ -39,27 +45,27 @@
 (defn wait [] (msg "running wait, returning false") true) ;; return true because wait ends looping over tests
 (defn noop [] (printf "running noop\n"))
 
+(nth (:login table) 0)
 
 ;; {:state-edge [[test-or-func next-state-edge] ...]}
 (def table
-  (atom
    {:login
-    [[if-logged-in :pages]
+    [[#(if-arg :logged-in)  :pages]
      [force-logout nil]
      [draw-login nil]
      [wait nil]]
     
     :login-input
-    [[if-logged-in :dashboard]
+    [[#(if-arg :logged-in) :dashboard]
      [login :login]]
 
     :pages
-    [[if-on-dashboard :dashboard-input]
-     [if-want-dashboard :dashboard]
+    [[#(if-arg :on-dashboard) :dashboard-input]
+     [#(if-arg :want-dashboard) :dashboard]
      [wait nil]]
 
     :dashboard
-    [[if-moderator :dashboard-moderator]
+    [[#(if-arg :moderator) :dashboard-moderator]
      [draw-dashboard]
      [wait nil]]
 
@@ -68,5 +74,5 @@
 
     :dashboard-input
     [[wait nil]]
-    }))
+    })
 

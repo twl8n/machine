@@ -70,11 +70,7 @@ The read-line loop was removed (deprecated).
 
 #### todo
 
-+ 2021-01-16 (def table (read-state-file)) inside defn causes the def to be eval'd at compile time (or early in run time) before the other defn's have been eval'd. This results in "Unable to resolve symbol: draw-dashboard-moderator in this context"
-
-It was always a bad idea to def, so switch to an atom.
-
-+ 2021-01-16 * demo4 fails, perhaps because will-not-dashboard doesn't exist.
+na 2021-01-16 * demo4 fails, perhaps because will-not-dashboard doesn't exist.
 Maybe if table has any fail during parsing, then exit.
 
 * upgrade state node vectors to a map for the sake of debugging, and
@@ -117,6 +113,11 @@ next call to sub-table
 * exit kills the repl, need something (like an exception) to exit clj, but leave the repl intact.
 
 (System/exit 0)
+
+fixed 2021-02-16 machine.state/table is a normal hashmap, not an atom.
+
+na 2021-01-16 (def table (read-state-file)) inside defn causes the def to be eval'd at compile time (or early in run time) before the other defn's have been eval'd. This results in "Unable to resolve symbol: draw-dashboard-moderator in this context" It was always a bad idea to def, so switch to an atom.
+
 
 #### notes
 

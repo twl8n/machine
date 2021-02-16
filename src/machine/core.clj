@@ -32,30 +32,35 @@
 ;; (re-find #"\$if_" (str fn-name))
 ;; (re-find #"/if-" (str fn-name))
 
+  ;; (cond (= fn-name (resolve 'fntrue)) (do (printf "Have fntrue, returning true.\n") (fntrue))
+  ;;       (= fn-name (resolve 'fnfalse)) (do (printf "Have fnfalse, returning false.\n" (fnfalse)))
+  ;;       (nil? (re-find #"\$if_" (str fn-name))) (fn-name)
+  ;;       :else
+
 (defn user-input [fn-name]
-  (printf "user-input fn-name: %s\n" fn-name)
-  (cond (= fn-name (resolve 'fntrue)) (do (printf "Have fntrue, returning true.\n") (fntrue))
-        (= fn-name (resolve 'fnfalse)) (do (printf "Have fnfalse, returning false.\n" (fnfalse)))
-        (nil? (re-find #"\$if_" (str fn-name))) (fn-name)
-        :else
+  (let [fn-result (fn-name)]
+  (printf "user-input fn-name: %s returns: %s\n" fn-name fn-result)
+    (if (boolean? fn-result)
+      fn-result
         (do
-          (print "Function" (str fn-name) ": ")
+          (print "Function" (str fn-result) ": ")
           (flush)
           (let [user-answer (if (= (read-line) "y")
                               true
                               false)]
             (printf "%s\n" user-answer)
-            user-answer))))
+            user-answer)))))
 
 
 ;; Loop through tests (nth curr 0) while tests are false, until hitting wait.
 ;; Stop looping  if test is true, and change to the next-state-edge (nth curr 2).
 (defn traverse-debug
   [state]
+  (add-state :test-mode)
   ;; (printf "state=%s\n" state)
   (if (nil? state)
     nil
-    (loop [tt (state @machine.state/table)
+    (loop [tt (state machine.state/table)
            xx 1]
       (let [curr (first tt)
             test-result (user-input (nth curr 0))]
@@ -72,7 +77,7 @@
   (printf "state=%s\n" state)
   (if (nil? state)
     nil
-    (loop [tt (state @machine.state/table)]
+    (loop [tt (state machine.state/table)]
       (let [curr (first tt)
             test-result ((nth curr 0))]
         (printf "curr=%s\n" curr)
@@ -84,30 +89,30 @@
 
 
 (defn demo []
-  (add-state :if-logged-in)
-  (add-state :if-moderator)
-  (add-state :if-want-dashboard)
+  (add-state :logged-in)
+  (add-state :moderator)
+  (add-state :want-dashboard)
   ;; (reset-state)
-  ;; (pp/pprint @machine.state/table)
+  ;; (pp/pprint machine.state/table)
   (traverse :login)
   )
 
 (defn demo2 []
   (reset-state)
-  (swap! app-state #(merge % {:if-logged-in true}))
+  (swap! app-state #(merge % {:logged-in true}))
   (println "initial state:" @app-state)
   (traverse :login)
   )
 
 (defn demo3 []
   (reset-state)
-  (swap! app-state #(merge % {:if-logged-in true :if-on-dashboard true}))
+  (swap! app-state #(merge % {:logged-in true :on-dashboard true}))
   (println "initial state:" @app-state)
   (traverse :login))
 
 (defn demo4 []
   (reset-state)
-  (swap! app-state #(merge % {:if-logged-in true :if-on-dashboard false :if-want-dashboard true :if-moderator true}))
+  (swap! app-state #(merge % {:logged-in true :on-dashboard false :want-dashboard true :moderator true}))
   (println "initial state:" @app-state)
   (traverse :login))
 
