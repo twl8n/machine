@@ -28,12 +28,16 @@ If true then switch context to the next-stage-edge
 If false, continue looping through the rows.
 Stop when no more rows or upon running the wait function.
 
-version 3: (current) First column is either if- or side-effect function. Traverse state if/functions until true or end. When an if- test is true, branch to the named state.
+version 3: First column is either if- or side-effect function. Traverse state if/functions until true or end. When an if- test is true, branch to the named state.
 
 Start with some state-edge (login).
 Loop over all rows running the test-or-func function for this state-edge.
 If true then switch context to the next-state-edge, if a next-stage-edge exists.
-If no next-state-edge, continue looping until no more rows or until wait.
+If no next-state-edge, continue looping (regardless of the return value) until no more rows or until wait.
+
+version 4: Like v3 in that the first column is if-or-function, but now the if- gains an optional third
+argument which is a function that runs when the if- is true. This allows if- to do more work without switching
+to another state.
 
 
 #### usage
@@ -135,6 +139,13 @@ Workflow state machine ported to Clojure
 
 ;; turn this into a function, run on the seq of maps that is the state table from read-state-file
 ;;   (map (fn [x] (if (not (= "" (x :test))) (assoc x :testx (eval (read-string (x :test)))) x)) table)
+
+#### git tagging notes
+
+Versions are mostly based on the structure of the state table.
+
+git tag v4
+git push origin v4
 
 
 #### License

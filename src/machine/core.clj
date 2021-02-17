@@ -39,7 +39,7 @@
 
 (defn user-input [fn-name]
   (let [fn-result (fn-name)]
-  (printf "user-input fn-name: %s returns: %s\n" fn-name fn-result)
+    (printf "user-input fn-name: %s returns: %s\n" fn-name fn-result)
     (if (boolean? fn-result)
       fn-result
         (do
@@ -65,13 +65,18 @@
       (let [curr (first tt)
             test-result (user-input (nth curr 0))]
         ;; (printf "curr=%s\n" curr)
-        (cond test-result (if (some? (nth curr 1))
-                              (traverse-debug (nth curr 1))
-                              nil)
-              (seq (rest tt)) (recur (rest tt) (inc xx))
-              :else nil)))))
+        (if (and test-result (some? (nth curr 1)))
+          (traverse-debug (nth curr 1))
+          (if (seq (rest tt))
+            (recur (rest tt) (inc xx))
+            nil))))))
 
 
+;; 2021-02-16
+;; If test-result and there is a new state, go to that state. When we return, we're done.
+;; Otherwise go to the next function of this state (regardless of the truthy-ness of a test or function return).
+;; Always stop when we run out of functions.
+;; todo? Maybe stop when the wait function runs. Right now, wait is a no-op.
 (defn traverse
   [state]
   (printf "state=%s\n" state)
@@ -79,19 +84,20 @@
     nil
     (loop [tt (state machine.state/table)]
       (let [curr (first tt)
+            _  (do (printf "curr=%s\n" curr)(flush))
             test-result ((nth curr 0))]
-        (printf "curr=%s\n" curr)
-        (cond test-result (if (some? (nth curr 1))
-                              (traverse (nth curr 1))
-                              nil)
-              (seq (rest tt)) (recur (rest tt))
-              :else nil)))))
+        (if (and test-result (some? (nth curr 1)))
+          (traverse (nth curr 1))
+          (if (seq (rest tt))
+            (recur (rest tt))
+            nil))))))
 
 
 (defn demo []
   (add-state :logged-in)
   (add-state :moderator)
   (add-state :want-dashboard)
+  (println "initial state: " @machine.state/app-state)
   ;; (reset-state)
   ;; (pp/pprint machine.state/table)
   (traverse :login)
@@ -100,30 +106,42 @@
 (defn demo2 []
   (reset-state)
   (swap! app-state #(merge % {:logged-in true}))
-  (println "initial state:" @app-state)
+  (println "initial state:" @machine.state/app-state)
   (traverse :login)
   )
 
 (defn demo3 []
   (reset-state)
   (swap! app-state #(merge % {:logged-in true :on-dashboard true}))
-  (println "initial state:" @app-state)
+  (println "initial state:" @machine.state/app-state)
   (traverse :login))
 
 (defn demo4 []
   (reset-state)
   (swap! app-state #(merge % {:logged-in true :on-dashboard false :want-dashboard true :moderator true}))
-  (println "initial state:" @app-state)
+  (println "initial state:" @machine.state/app-state)
   (traverse :login))
 
 (defn demo4-debug []
   (reset-state)
+  (add-state :test-mode)
   ;; Setting app-state makes no sense in a debug setting. The user will answer all the if- state tests.
   (loop []
     (traverse-debug :login)
     (if (go-again) (recur)
         nil)))
 
+(defn demo5 []
+  (reset-state)
+  (swap! app-state #(merge % {:logged-in true :on-dashboard false :want-list true :moderator true}))
+  (println "initial state:" @machine.state/app-state)
+  (traverse :login))
+
+(defn demo6 []
+  (reset-state)
+  (swap! app-state #(merge % {:logged-in false :on-dashboard false :want-list true :moderator true}))
+  (println "initial state:" @machine.state/app-state)
+  (traverse :login))
 
 (defn -main
   "Parse the states.dat file."

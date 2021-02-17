@@ -21,29 +21,34 @@
 (defn is-return? [arg] false)
 (defn jump-to [arg jstack] [arg (cons arg jstack)])
 
-;; (if-arg :item)
-;; After testing for state, the tested key is removed to prevent infinite looping.
-;; That seems wrong, and has to be a temp fix.
-(defn if-arg [tkey]
-  (if (:test-mode @app-state)
-    tkey
-    (let [tval (tkey @app-state)
-          ret (and (seq tval) tval)]
-      (swap! app-state #(dissoc % tkey))
-      (boolean ret))))
+;; (if-arg :item) Do not clear state after testing it, even if it might prevent infinite loops. The wrongness
+;; of clearing state can be seen by the wrongness of resetting :logged-in. Infinite loops need to be addressed
+;; by proper design and good logic.
+(defn if-arg
+  ([tkey]
+   (if-arg tkey nil))
+  ([tkey side-effect]
+   (if (:test-mode @app-state)
+     tkey
+     (let [ret (= true (tkey @app-state))]
+       (when (and ret side-effect) (side-effect))
+       ret))))
 
-(defn draw-login [] (msg "running draw-login") false)
-(defn force-logout [] (msg "forcing logout") (swap! app-state #(apply dissoc %  [:logged-in])) false)
-(defn draw-dashboard-moderator [] (add-state :on-dashboard)  (msg "running draw-dashboard-moderator") false)
 
-(defn draw-dashboard [] (msg "running draw-dashboard") false)
+(defn draw-login [] (msg "running draw-login") true)
+(defn force-logout [] (msg "forcing logout") (swap! app-state #(apply dissoc %  [:logged-in])) true)
+(defn draw-dashboard-moderator [] (add-state :on-dashboard)  (msg "running draw-dashboard-moderator") true)
 
-(defn logout [] (msg "running logout") false)
-(defn login [] (msg "running login") false)
+(defn draw-dashboard [] (msg "running draw-dashboard") true)
+
+(defn logout [] (msg "running logout") true)
+(defn login [] (msg "running login") true)
 (defn fntrue [] (msg "running fntrue") true)
 (defn fnfalse [] (msg "running fnfalse") false)
-(defn wait [] (msg "running wait, returning false") true) ;; return true because wait ends looping over tests
-(defn noop [] (printf "running noop\n"))
+(defn wait [] (msg "running wait, returning true") true) ;; return true because wait ends looping over tests
+(defn noop [] (printf "running noop, returning false\n") (flush) false)
+
+(defn draw-list [] (msg "running draw-list, returning true") true)
 
 (nth (:login table) 0)
 
@@ -51,8 +56,9 @@
 (def table
    {:login
     [[#(if-arg :logged-in)  :pages]
-     [force-logout nil]
-     [draw-login nil]
+     [(fn dual [] (force-logout) (draw-login) false) nil]
+     [noop nil]
+     [noop nil]
      [wait nil]]
     
     :login-input
@@ -62,15 +68,14 @@
     :pages
     [[#(if-arg :on-dashboard) :dashboard-input]
      [#(if-arg :want-dashboard) :dashboard]
+     [#(if-arg :want-list draw-list) nil]
+     [noop nil]
      [wait nil]]
 
     :dashboard
-    [[#(if-arg :moderator) :dashboard-moderator]
+    [[#(if-arg :moderator (fn [] (draw-dashboard-moderator))) :dashboard-input]
      [draw-dashboard]
      [wait nil]]
-
-    :dashboard-moderator
-    [[draw-dashboard-moderator :dashboard-input]]
 
     :dashboard-input
     [[wait nil]]
