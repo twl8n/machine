@@ -50,7 +50,9 @@
 
 (defn draw-list [] (msg "running draw-list, returning true") true)
 
-(nth (:login table) 0)
+(defn verify-table [table]
+  (let [states (set (keys table))])
+  )
 
 ;; {:state-edge [[test-or-func next-state-edge] ...]}
 (def table
