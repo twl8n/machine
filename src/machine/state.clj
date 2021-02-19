@@ -51,10 +51,63 @@
 (defn draw-list [] (msg "running draw-list, returning true") true)
 
 (defn verify-table [table]
-  (let [states (set (keys table))])
+  (let [states (set (keys table))
+        next-states (set (filter keyword? (flatten (vals table))))]
+    (if (= next-states states)
+      (format "All defined/called match.\n")
+      (if (clojure.set/subset? next-states states)
+        {:msg (format "Edges that are never called: %s\n" (str/join " " (clojure.set/difference states next-states)))
+         :fatal false}
+        {:msg (format "Undefined edges: %s\n" (str/join " " (clojure.set/difference next-states states)))
+         :fatal true}
+        )))
+    )
+
+(defn check-table []
+  (let [arity-problems (filter #(not= 2 (count %)) (mapcat identity (vals table)))]
+    (when (some? arity-problems)
+      (doseq [edge arity-problems]
+        (printf "Expecting 2 elements in edge: %s\n" edge)))))
+
+(def limit-check (atom 0))
+(def ^:dynamic limit-max 17)
+
+(defn traverse-all
+  [state]
+  (printf "state=%s\n" state)(flush)
+  (if (nil? state)
+    nil
+    (loop [tt (state machine.state/table)]
+      (swap! limit-check inc)
+      (let [curr (first tt)
+            ;; test-result ((nth curr 0))
+            ]
+        ;; Assume true, but when we return, continue as though the test was false.
+        ;; Default to nil from (nth curr 1) in case there aren't 2 elements. We require 2 elements,
+        ;; but that test should be discovered by other code. 
+        (when (some? (nth curr 1 nil))
+          (do
+            (prn "new state: " (nth curr 1))
+            (traverse-all (nth curr 1))
+            (print (format "returning to state: %s\n" curr))))
+        (if (and (< @limit-check limit-max) (seq (rest tt)))
+          (do 
+            (printf "lc: %s and: %s\n" @limit-check (and (< @limit-check 15) (seq (rest tt))))
+            (flush)
+            (recur (rest tt)))
+          (do
+            (when (>= @limit-check limit-max) (printf "Stopping at limit-check %s. Infinite loop?\n" @limit-check))
+            nil))))))
+
+(comment
+  (do (reset! limit-check 0)
+      (binding [limit-max 20]
+        (traverse-all :login)))
+
+  (traverse-all :dashboard-input)
   )
 
-;; {:state-edge [[test-or-func next-state-edge] ...]}
+;; {:state-edge [[(test-or-func side-effect-fn) next-state-edge] ...]}
 (def table
    {:login
     [[#(if-arg :logged-in)  :pages]
@@ -76,10 +129,13 @@
 
     :dashboard
     [[#(if-arg :moderator (fn [] (draw-dashboard-moderator))) :dashboard-input]
-     [draw-dashboard]
+     [draw-dashboard nil]
      [wait nil]]
 
     :dashboard-input
     [[wait nil]]
     })
+
+(let [vtmap (verify-table table)]
+  (when (:fatal vtmap) (throw (Exception. (:msg vtmap)))))
 
