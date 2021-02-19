@@ -1,5 +1,6 @@
 (ns machine.state
   (:require [clojure.string :as str]
+            [clojure.set]
             [clojure.pprint :as pp]))
 
 (defn msg [arg] (printf "%s\n" arg))
@@ -60,10 +61,9 @@
          :fatal false}
         {:msg (format "Undefined edges: %s\n" (str/join " " (clojure.set/difference next-states states)))
          :fatal true}
-        )))
-    )
+        ))))
 
-(defn check-table []
+(defn check-table [table]
   (let [arity-problems (filter #(not= 2 (count %)) (mapcat identity (vals table)))]
     (when (some? arity-problems)
       (doseq [edge arity-problems]
@@ -72,12 +72,15 @@
 (def limit-check (atom 0))
 (def ^:dynamic limit-max 17)
 
+;; This is an ok first try, but it doesn't take [wait nil] into account as a halting condition.
+;; And it doesn't take running out of edge-test-functions as a halting condition.
+;; And it doesn't account for if-tests that won't hit for transitioned states.
 (defn traverse-all
-  [state]
+  [state table]
   (printf "state=%s\n" state)(flush)
   (if (nil? state)
     nil
-    (loop [tt (state machine.state/table)]
+    (loop [tt (state table)]
       (swap! limit-check inc)
       (let [curr (first tt)
             ;; test-result ((nth curr 0))
@@ -88,7 +91,7 @@
         (when (some? (nth curr 1 nil))
           (do
             (prn "new state: " (nth curr 1))
-            (traverse-all (nth curr 1))
+            (traverse-all (nth curr 1) table)
             (print (format "returning to state: %s\n" curr))))
         (if (and (< @limit-check limit-max) (seq (rest tt)))
           (do 
@@ -100,11 +103,11 @@
             nil))))))
 
 (comment
+  (verify-table table)
+  (check-table table)
   (do (reset! limit-check 0)
       (binding [limit-max 20]
-        (traverse-all :login)))
-
-  (traverse-all :dashboard-input)
+        (traverse-all :login table)))
   )
 
 ;; {:state-edge [[(test-or-func side-effect-fn) next-state-edge] ...]}
