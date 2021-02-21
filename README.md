@@ -74,6 +74,11 @@ The read-line loop was removed (deprecated).
 
 #### todo
 
+- 2021-02-20 In order to generalize testing for infinite loops, create a new version of traverse-all that runs
+  tests but doe not not run state dispatch functions. Right now, machine.core/traverse has an infinite loop
+  detector, but it is also running the dispatch functions. In this project dispatch functions only print
+  stuff, so this solution is not generalized.
+
 na 2021-01-16 * demo4 fails, perhaps because will-not-dashboard doesn't exist.
 Maybe if table has any fail during parsing, then exit.
 

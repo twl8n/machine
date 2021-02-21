@@ -71,6 +71,20 @@
             (recur (rest tt) (inc xx))
             nil))))))
 
+(def history (atom #{}))
+(defn reset-history []
+  (reset! history #{}))
+
+;; 2021-02-20 Add an infinite loop detector based on a combination of state and app-state. At the beginning of
+;; traverse check the history to see if we've enountered the state+app-state combination. If yes, then return
+;; an error message, else conj state+app-state to the history and continue.
+
+;; My intuition about the state machine says that a given state+app-state must occur only once per traversal.
+;; That only holds true if app-state cannot change during execution. It may also be true that any looping
+;; should be illegal and is likely to be an infinite loop. If so, then all we need is a simple history
+;; of "state", and not state+app-state.
+
+;; Also, add a looping limit check. If the check exceeds some max, then apparently we are in an infinite loop.
 
 ;; 2021-02-16
 ;; If test-result and there is a new state, go to that state. When we return, we're done.
@@ -79,18 +93,26 @@
 ;; todo? Maybe stop when the wait function runs. Right now, wait is a no-op.
 (defn traverse
   [state]
-  (printf "state=%s\n" state)
-  (if (nil? state)
-    nil
-    (loop [tt (state machine.state/table)]
-      (let [curr (first tt)
-            _  (do (printf "curr=%s\n" curr)(flush))
-            test-result ((nth curr 0))]
-        (if (and test-result (some? (nth curr 1)))
-          (traverse (nth curr 1))
-          (if (seq (rest tt))
-            (recur (rest tt))
-            nil))))))
+  (if (contains? @history {:state state :app-state @app-state})
+    {:error true :msg (format "infinite loop? state: %s app-state: %s limit-check: %s" state @app-state @limit-check)}
+    (do
+      (swap! history #(conj % {:state state :app-state @app-state}))
+      ;; (printf "state=%s\n" state)
+      (if (nil? state)
+        nil
+        (loop [tt (state machine.state/table)]
+          (swap! machine.state/limit-check inc)
+          (let [curr (first tt)
+                ;; _  (do (printf "curr=%s\n" curr)(flush))
+                test-result ((nth curr 0))]
+            (if (and (< @limit-check limit-max) test-result (some? (nth curr 1)))
+              (do (swap! machine.state/limit-check inc)
+                  (traverse (nth curr 1)))
+              (if (and (< @limit-check limit-max) (seq (rest tt)))
+                (recur (rest tt))
+                (do
+                  (when (>= @limit-check limit-max) (format "Stopping at limit-check %s. Infinite loop?\n" @limit-check))
+                  )))))))))
 
 
 (defn demo []

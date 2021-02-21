@@ -1,5 +1,6 @@
 (ns machine.state
   (:require [clojure.string :as str]
+            [clojure.math.combinatorics :as combo]
             [clojure.set]
             [clojure.pprint :as pp]))
 
@@ -110,6 +111,37 @@
         (traverse-all :login table)))
   )
 
+  ;; check for infinite loops by running the machine with every possible combination of app-state values.
+  ;; This only checks one starting state :login. A more complete test might be to try every state as a starting value.
+(defn check-infinite []
+  (let [state-combos (mapcat #(combo/permuted-combinations [:logged-in :on-dashboard :want-dashboard :want-list] %) (range 1 4))]
+    (map (fn [tstate]
+           (reset-state)
+           (run! add-state tstate)
+           (reset! limit-check 0)
+           (machine.core/reset-history)
+           (binding [limit-max 20]
+             (machine.core/traverse :login))) state-combos)))
+
+;; [test-key dispatch-fn new-state]
+
+;; Easier to run test mode that runs tests but not dispatch functions
+
+;; Question: can you think of a reason for the first element to be a dispatch function, now that we have
+;; reverted back to if-arg taking a dispatch function as a second arg?
+;; Answer: Uh. I can't think of any reason, right now.
+(def new-format-table
+  {:login
+   [[:logged-in nil  :pages]
+    [:true (fn dual []
+             (force-logout) (draw-login) false) nil]]
+   
+   :login-input
+   [[:logged-in nil :dashboard]
+    [:true login :login]]
+   }
+  )
+
 ;; {:state-edge [[(test-or-func side-effect-fn) next-state-edge] ...]}
 (def table
    {:login
@@ -124,7 +156,10 @@
      [login :login]]
 
     :pages
-    [[#(if-arg :on-dashboard) :dashboard-input]
+    [
+     ;; uncomment the following to create an infinite loop
+     ;; [#(if-arg :logged-in) :login]
+     [#(if-arg :on-dashboard) :dashboard-input]
      [#(if-arg :want-dashboard) :dashboard]
      [#(if-arg :want-list draw-list) nil]
      [noop nil]
