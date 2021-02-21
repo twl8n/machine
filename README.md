@@ -39,6 +39,12 @@ version 4: Like v3 in that the first column is if-or-function, but now the if- g
 argument which is a function that runs when the if- is true. This allows if- to do more work without switching
 to another state.
 
+version 5: Revert to 3 columns for each element of a state (each edge?). The first column is ONLY a boolean
+expression based on app-state. The second column is a side-effecty function (or nil), and the third columnn is a new state (or nil).
+
+This design allows running the tests for the purpose of proving the machine, while not having to run the side
+effect producing functions.
+
 
 #### usage
 

@@ -124,21 +124,21 @@
              (machine.core/traverse :login))) state-combos)))
 
 ;; [test-key dispatch-fn new-state]
-
-;; Easier to run test mode that runs tests but not dispatch functions
-
-;; Question: can you think of a reason for the first element to be a dispatch function, now that we have
-;; reverted back to if-arg taking a dispatch function as a second arg?
-;; Answer: Uh. I can't think of any reason, right now.
 (def new-format-table
   {:login
    [[:logged-in nil  :pages]
     [:true (fn dual []
-             (force-logout) (draw-login) false) nil]]
+             (force-logout) (draw-login)) nil]]
    
    :login-input
-   [[:logged-in nil :dashboard]
-    [:true login :login]]
+   [[:logged-in nil :is-logged-in]
+    [:read-only nil :view-page]
+    [:summary-only nil :view-page] ;; (or :read-only :summary)
+    [:true login nil]]
+
+   :is-logged-in
+   [[:on-dashboard nil :dashboard-input]] ;; (and :logged-in :on-dashboard)
+
    }
   )
 
