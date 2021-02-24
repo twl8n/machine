@@ -1,6 +1,5 @@
 (ns machine.state
   (:require [clojure.string :as str]
-            [clojure.math.combinatorics :as combo]
             [clojure.set]
             [clojure.pprint :as pp]))
 
@@ -8,8 +7,9 @@
 
 (def app-state (atom {}))
 
+;; app-state always has a :true that is true
 (defn reset-state [] 
-  (swap! app-state (fn [foo] {})))
+  (swap! app-state (fn [foo] {:true true})))
 
 (defn add-state [new-kw]
   (swap! app-state #(apply assoc % [new-kw true])))
@@ -23,18 +23,12 @@
 (defn is-return? [arg] false)
 (defn jump-to [arg jstack] [arg (cons arg jstack)])
 
-;; (if-arg :item) Do not clear state after testing it, even if it might prevent infinite loops. The wrongness
-;; of clearing state can be seen by the wrongness of resetting :logged-in. Infinite loops need to be addressed
-;; by proper design and good logic.
-(defn if-arg
-  ([tkey]
-   (if-arg tkey nil))
-  ([tkey side-effect]
-   (if (:test-mode @app-state)
-     tkey
-     (let [ret (= true (tkey @app-state))]
-       (when (and ret side-effect) (side-effect))
-       ret))))
+;; test-mode is for using user input to determine application state, so test mode returns the test key.
+(defn if-arg [tkey]
+  (if (:test-mode @app-state)
+    tkey
+    (do (prn tkey (tkey @app-state))
+        (= true (tkey @app-state)))))
 
 
 (defn draw-login [] (msg "running draw-login") true)
@@ -54,7 +48,7 @@
 
 (defn verify-table [table]
   (let [states (set (keys table))
-        next-states (set (filter keyword? (flatten (vals table))))]
+        next-states (set (filter keyword? (map last (mapcat conj (vals table)))))]
     (if (= next-states states)
       (format "All defined/called match.\n")
       (if (clojure.set/subset? next-states states)
@@ -65,10 +59,14 @@
         ))))
 
 (defn check-table [table]
-  (let [arity-problems (filter #(not= 2 (count %)) (mapcat identity (vals table)))]
-    (when (some? arity-problems)
-      (doseq [edge arity-problems]
-        (printf "Expecting 2 elements in edge: %s\n" edge)))))
+  (let [arity-problems (filter #(not= 3 (count %)) (mapcat conj (vals table)))]
+    (if (seq arity-problems)
+      (let [retstr (str/join "" (map #(format "Expecting 3 elements in edge: %s\n" %) arity-problems))]
+        (print retstr)
+        retstr)
+      (let [retstr (format "All transitions have 3 elements\n")]
+        (print retstr)
+        retstr))))
 
 (def limit-check (atom 0))
 (def ^:dynamic limit-max 17)
@@ -111,69 +109,51 @@
         (traverse-all :login table)))
   )
 
-  ;; check for infinite loops by running the machine with every possible combination of app-state values.
-  ;; This only checks one starting state :login. A more complete test might be to try every state as a starting value.
-(defn check-infinite []
-  (let [state-combos (mapcat #(combo/permuted-combinations [:logged-in :on-dashboard :want-dashboard :want-list] %) (range 1 4))]
-    (map (fn [tstate]
-           (reset-state)
-           (run! add-state tstate)
-           (reset! limit-check 0)
-           (machine.core/reset-history)
-           (binding [limit-max 20]
-             (machine.core/traverse :login))) state-combos)))
+;; State transition table. Keys in the table are named transition nodes.
 
-;; [test-key dispatch-fn new-state]
-(def new-format-table
+;; The "state" of the system is a hash map app-state consisting of keys and boolean values. Input events are
+;; mapped to boolean state values. Input might also determine the starting node.
+
+;; Node conditionals are individual keys from app-state. When the conditional is true, the dispatch function
+;; runs, and the machine transitions to the named node. False conditionals fall through, as do true
+;; conditionals with nil next node values. The machine halts when there are no remaining conditionals.
+
+;; Dispatch functions may be nil. Next node may be nil. 
+
+;; {:transition-node-name
+;; [conditional-key dispatch-fn next-node]
+(def table
   {:login
    [[:logged-in nil  :pages]
-    [:true (fn dual []
-             (force-logout) (draw-login)) nil]]
+    [:true (fn dual [] (force-logout) (draw-login) false) nil]
+    [:true noop nil]
+    [:true noop nil]
+    [:true wait nil]]
    
    :login-input
-   [[:logged-in nil :is-logged-in]
-    [:read-only nil :view-page]
-    [:summary-only nil :view-page] ;; (or :read-only :summary)
-    [:true login nil]]
+   [[:logged-in nil :dashboard]
+    [:true login :login]]
 
-   :is-logged-in
-   [[:on-dashboard nil :dashboard-input]] ;; (and :logged-in :on-dashboard)
+   :pages
+   [
+    ;; uncomment the following to create an infinite loop
+    ;; [:logged-in nil :login]
+    [:on-dashboard nil :dashboard-input]
+    [:want-dashboard nil :dashboard]
+    [:want-list draw-list nil]
+    [:true (fn [] (prn "running: You have to choose something")) nil]
+    [:true wait nil]]
 
-   }
+   :dashboard
+   [[:moderator (fn [] (draw-dashboard-moderator)) :dashboard-input]
+    [:true draw-dashboard nil]
+    [:true wait nil]]
+
+   :dashboard-input
+   [[:true #(prn "running: waiting for dashboard input") nil]]
+   })
+
+(comment
+  (let [vtmap (verify-table table)]
+    (when (:fatal vtmap) (throw (Exception. (:msg vtmap)))))
   )
-
-;; {:state-edge [[(test-or-func side-effect-fn) next-state-edge] ...]}
-(def table
-   {:login
-    [[#(if-arg :logged-in)  :pages]
-     [(fn dual [] (force-logout) (draw-login) false) nil]
-     [noop nil]
-     [noop nil]
-     [wait nil]]
-    
-    :login-input
-    [[#(if-arg :logged-in) :dashboard]
-     [login :login]]
-
-    :pages
-    [
-     ;; uncomment the following to create an infinite loop
-     ;; [#(if-arg :logged-in) :login]
-     [#(if-arg :on-dashboard) :dashboard-input]
-     [#(if-arg :want-dashboard) :dashboard]
-     [#(if-arg :want-list draw-list) nil]
-     [noop nil]
-     [wait nil]]
-
-    :dashboard
-    [[#(if-arg :moderator (fn [] (draw-dashboard-moderator))) :dashboard-input]
-     [draw-dashboard nil]
-     [wait nil]]
-
-    :dashboard-input
-    [[wait nil]]
-    })
-
-(let [vtmap (verify-table table)]
-  (when (:fatal vtmap) (throw (Exception. (:msg vtmap)))))
-

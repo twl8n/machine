@@ -39,11 +39,28 @@ version 4: Like v3 in that the first column is if-or-function, but now the if- g
 argument which is a function that runs when the if- is true. This allows if- to do more work without switching
 to another state.
 
-version 5: Revert to 3 columns for each element of a state (each edge?). The first column is ONLY a boolean
-expression based on app-state. The second column is a side-effecty function (or nil), and the third columnn is a new state (or nil).
+version 5: Attempt to standard nomenclature.
 
-This design allows running the tests for the purpose of proving the machine, while not having to run the side
+Revert to 3 columns for transition values. The first column is a keyword that returns a boolean from app-state. The second column is a side-effecty function (or nil), and the third columnn is the next named transition (or nil).
+
+The state transition table is `machine.state/table`. Keys in the table are named transition nodes.
+
+The "state" of the system is a hash map atom `machine.state/app-state` consisting of keys and boolean values. Input events are
+mapped to boolean state values. Input might also determine the transition table starting node.
+
+Transition conditionals are individual keys from app-state. When the conditional is true, the dispatch function
+runs, and the machine transitions to the named node. False conditionals fall through, as do true
+conditionals with nil next node values. The machine halts when there are no remaining conditionals.
+
+Dispatch functions may be nil. Next node may be nil. 
+
+This design simplifies running tests for the purpose of proving the machine, while not having to run the side
 effect producing functions.
+
+Change `traverse` to take app-state as an argument, so that app-state is locally scoped because that's a good
+idea. Make it a rule that the in-scope app-state is not modified by the state machine and side-effecty
+functions. Global state can only go into effect after the machine halts. Side effects and inputs change the
+state that will be seen by the next run of the state machine.
 
 
 #### usage

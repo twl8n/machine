@@ -1,3 +1,21 @@
+(def transition
+  {:login
+   [[:logged-in nil :pages]
+    [:true (fn dual []
+             (force-logout) (draw-login)) nil]]
+   
+   :login-input
+   [[:logged-in nil :is-logged-in]
+    [:read-only nil :view-page]
+    [:summary-only nil :view-page] ;; (or :read-only :summary)
+    [:true login nil]]
+
+   :is-logged-in
+   [[:on-dashboard nil :dashboard-input]] ;; (and :logged-in :on-dashboard)
+
+   }
+  )
+
 (defn cp-swap [v i1 i2]
     (assoc v  i2 (v i1) i1 (v i2)))
 
