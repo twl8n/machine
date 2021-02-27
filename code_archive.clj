@@ -1,3 +1,30 @@
+;; Also, add a looping limit check. If the check exceeds some max, then apparently we are in an infinite loop.
+
+(defn traverse-loop-check
+  [state tv-table]
+  (if (contains? @history {:state state :app-state @app-state})
+    {:error true :msg (format "infinite loop? state: %s app-state: %s limit-check: %s" state @app-state @limit-check)}
+    (do
+      (swap! history #(conj % {:state state}))
+      (if (nil? state)
+        nil
+        (loop [tt tv-table]
+          (swap! machine.state/limit-check inc)
+          (let [curr (first tt)
+                test-result (if-arg (nth curr 0))]
+            (when (and test-result (some? (nth curr 1)))
+              ((nth curr 1)))
+            (if (and (< @limit-check limit-max) test-result (some? (nth curr 2)))
+              (do (swap! machine.state/limit-check inc)
+                  (traverse-loop-check (nth curr 2) tv-table))
+              (if (seq (rest tt))
+                (if (< @limit-check limit-max)
+                  (recur (rest tt))
+                  {:error true :msg (format "Stopping at limit-check %s. Infinite loop?\n" @limit-check)}
+                  )))))))))
+
+
+
 (def transition
   {:login
    [[:logged-in nil :pages]

@@ -1,5 +1,6 @@
 (ns machine.core
   (:require [machine.state :refer :all]
+            [machine.util :refer :all]
             [clojure.math.combinatorics :as combo]
             [clojure.string :as str]
             [clojure.pprint :as pp])
@@ -33,24 +34,24 @@
 ;; (re-find #"\$if_" (str fn-name))
 ;; (re-find #"/if-" (str fn-name))
 
-  ;; (cond (= fn-name (resolve 'fntrue)) (do (printf "Have fntrue, returning true.\n") (fntrue))
-  ;;       (= fn-name (resolve 'fnfalse)) (do (printf "Have fnfalse, returning false.\n" (fnfalse)))
-  ;;       (nil? (re-find #"\$if_" (str fn-name))) (fn-name)
-  ;;       :else
+;; (cond (= fn-name (resolve 'fntrue)) (do (printf "Have fntrue, returning true.\n") (fntrue))
+;;       (= fn-name (resolve 'fnfalse)) (do (printf "Have fnfalse, returning false.\n" (fnfalse)))
+;;       (nil? (re-find #"\$if_" (str fn-name))) (fn-name)
+;;       :else
 
 (defn user-input [fn-name]
   (let [fn-result (fn-name)]
     (printf "user-input fn-name: %s returns: %s\n" fn-name fn-result)
     (if (boolean? fn-result)
       fn-result
-        (do
-          (print "Function" (str fn-result) ": ")
-          (flush)
-          (let [user-answer (if (= (read-line) "y")
-                              true
-                              false)]
-            (printf "%s\n" user-answer)
-            user-answer)))))
+      (do
+        (print "Function" (str fn-result) ": ")
+        (flush)
+        (let [user-answer (if (= (read-line) "y")
+                            true
+                            false)]
+          (printf "%s\n" user-answer)
+          user-answer)))))
 
 
 ;; Loop through tests (nth curr 0) while tests are false, until hitting wait.
@@ -77,24 +78,19 @@
 (defn traverse-test
   [state table]
   (if (contains? @history {:state state :app-state @app-state})
-    {:error true :msg (format "infinite loop? state: %s app-state: %s limit-check: %s" state @app-state @limit-check)}
+    {:error true :msg (format "infinite loop? state: %s app-state: %s " state @app-state)}
     (do
       (swap! history #(conj % {:state state}))
       (if (nil? state)
         nil
-        (loop [tt (state machine.state/table)]
-          (swap! machine.state/limit-check inc)
+        (loop [tt (state table)]
           (let [curr (first tt)
-                test-result (machine.state/if-arg (nth curr 0))]
+                test-result (if-arg (nth curr 0))]
             ;; We're testing, so don't run the side effect fn.
-            (if (and (< @limit-check limit-max) test-result (some? (nth curr 2)))
-              (do (swap! machine.state/limit-check inc)
-                  (traverse (nth curr 2)))
+            (if (and test-result (some? (nth curr 2)))
+              (traverse-test (nth curr 2) table)
               (if (seq (rest tt))
-                (if (< @limit-check limit-max)
-                  (recur (rest tt))
-                  {:error true :msg (format "Stopping at limit-check %s. Infinite loop?\n" @limit-check)}
-                  )))))))))
+                (recur (rest tt))))))))))
 
 ;; 2021-02-20 Add an infinite loop detector based on a combination of state and app-state. At the beginning of
 ;; traverse check the history to see if we've enountered the state+app-state combination. If yes, then return
@@ -104,31 +100,6 @@
 ;; That only holds true if app-state cannot change during execution. It may also be true that any looping
 ;; should be illegal and is likely to be an infinite loop. If so, then all we need is a simple history
 ;; of "state", and not state+app-state.
-
-;; Also, add a looping limit check. If the check exceeds some max, then apparently we are in an infinite loop.
-
-(defn traverse-loop-check
-  [state tv-table]
-  (if (contains? @history {:state state :app-state @app-state})
-    {:error true :msg (format "infinite loop? state: %s app-state: %s limit-check: %s" state @app-state @limit-check)}
-    (do
-      (swap! history #(conj % {:state state}))
-      (if (nil? state)
-        nil
-        (loop [tt tv-table]
-          (swap! machine.state/limit-check inc)
-          (let [curr (first tt)
-                test-result (machine.state/if-arg (nth curr 0))]
-            (when (and test-result (some? (nth curr 1)))
-              ((nth curr 1)))
-            (if (and (< @limit-check limit-max) test-result (some? (nth curr 2)))
-              (do (swap! machine.state/limit-check inc)
-                  (traverse (nth curr 2) tv-table))
-              (if (seq (rest tt))
-                (if (< @limit-check limit-max)
-                  (recur (rest tt))
-                  {:error true :msg (format "Stopping at limit-check %s. Infinite loop?\n" @limit-check)}
-                  )))))))))
 
 ;; 2021-02-16
 ;; If test-result and there is a new state, go to that state. When we return, we're done.
@@ -152,7 +123,7 @@
         nil
         (loop [tt (state tv-table)]
           (let [curr (first tt)
-                test-result (machine.state/if-arg (nth curr 0))]
+                test-result (if-arg (nth curr 0))]
             (when (and test-result (some? (nth curr 1)))
               ((nth curr 1)))
             (if (and test-result (some? (nth curr 2)))
@@ -161,22 +132,77 @@
                 (recur (rest tt))
                 nil))))))))
 
+(defn verify-table [table]
+  (let [states (set (keys table))
+        next-states (set (filter keyword? (map last (mapcat conj (vals table)))))]
+    (if (= next-states states)
+      (format "All defined/called match.\n")
+      (if (clojure.set/subset? next-states states)
+        {:msg (format "Edges that are never called: %s\n" (str/join " " (clojure.set/difference states next-states)))
+         :fatal false}
+        {:msg (format "Undefined edges: %s\n" (str/join " " (clojure.set/difference next-states states)))
+         :fatal true}
+        ))))
 
+(defn check-table [table]
+  (let [arity-problems (filter #(not= 3 (count %)) (mapcat conj (vals table)))]
+    (if (seq arity-problems)
+      (let [retstr (str/join "" (map #(format "Expecting 3 elements in edge: %s\n" %) arity-problems))]
+        (print retstr)
+        retstr)
+      (let [retstr (format "All transitions have 3 elements\n")]
+        (print retstr)
+        retstr))))
+
+(def limit-check (atom 0))
+(def ^:dynamic limit-max 17)
+
+;; This is an ok first try, but it doesn't take [wait nil] into account as a halting condition.
+;; And it doesn't take running out of edge-test-functions as a halting condition.
+;; And it doesn't account for if-tests that won't hit for transitioned states.
+(defn traverse-all
+  [state table]
+  (printf "state=%s\n" state)(flush)
+  (if (nil? state)
+    nil
+    (loop [tt (state table)]
+      (swap! limit-check inc)
+      (let [curr (first tt)
+            ;; test-result ((nth curr 0))
+            ]
+        ;; Assume true, but when we return, continue as though the test was false.
+        ;; Default to nil from (nth curr 1) in case there aren't 2 elements. We require 2 elements,
+        ;; but that test should be discovered by other code. 
+        (when (some? (nth curr 1 nil))
+          (do
+            (prn "new state: " (nth curr 1))
+            (traverse-all (nth curr 1) table)
+            (print (format "returning to state: %s\n" curr))))
+        (if (and (< @limit-check limit-max) (seq (rest tt)))
+          (do 
+            (printf "lc: %s and: %s\n" @limit-check (and (< @limit-check 15) (seq (rest tt))))
+            (flush)
+            (recur (rest tt)))
+          (do
+            (when (>= @limit-check limit-max) (printf "Stopping at limit-check %s. Infinite loop?\n" @limit-check))
+            nil))))))
 
 (defn munge-table-for-testing [table]
   (let [table (into {} (map (fn [xx] {(key xx) (mapv (fn [yy] (assoc yy 1 nil)) (val xx))}) table))]
     table))
 
 (comment
+  (verify-table table)
+  (check-table table)
   (machine.core/demo)
   (check-infinite machine.state/table)
   (let [known-tests (vec (set (filter keyword? (map first (mapcat conj (vals table))))))
         state-combos (mapcat #(combo/permuted-combinations known-tests %) (range 1 (count known-tests)))]
     state-combos)
-         )
+  )
 
-  ;; check for infinite loops by running the machine with every possible combination of app-state values.
-  ;; This only checks one starting state :login. A more complete test might be to try every state as a starting value.
+;; check for infinite loops by running the machine with every possible combination of app-state values.
+;; This only checks one starting state :login. A more complete test might be to try every state as a starting value.
 (defn check-infinite [table]
   (let [test-table (munge-table-for-testing table)
         known-tests (vec (set (filter keyword? (map first (mapcat conj (vals test-table))))))
@@ -186,10 +212,9 @@
             (map (fn [tstate]
                    (reset-state)
                    (run! add-state tstate)
-                   (reset! limit-check 0)
+                   ;; (reset! limit-check 0)
                    (machine.core/reset-history)
-                   (binding [limit-max 20]
-                     (machine.core/traverse :login test-table))) state-combos))))
+                   (machine.core/traverse :login test-table)) state-combos))))
 
 
 (defn demo []
@@ -197,33 +222,33 @@
   (add-state :logged-in)
   (add-state :moderator)
   (add-state :want-dashboard)
-  (println "initial state: " @machine.state/app-state)
+  (println "initial state: " @machine.util/app-state)
   ;; (pp/pprint machine.state/table)
   (machine.core/reset-history)
-  (traverse :login machine.state/table)
+  (traverse :login table)
   )
 
 (defn demo2 []
   (reset-state)
   (swap! app-state #(merge % {:logged-in true}))
-  (println "initial state:" @machine.state/app-state)
+  (println "initial state:" @machine.util/app-state)
   (machine.core/reset-history)
-  (traverse :login machine.state/table)
+  (traverse :login table)
   )
 
 (defn demo3 []
   (reset-state)
   (swap! app-state #(merge % {:logged-in true :on-dashboard true}))
-  (println "initial state:" @machine.state/app-state)
+  (println "initial state:" @machine.util/app-state)
   (machine.core/reset-history)
-  (traverse :login machine.state/table))
+  (traverse :login table))
 
 (defn demo4 []
   (reset-state)
   (swap! app-state #(merge % {:logged-in true :on-dashboard false :want-dashboard true :moderator true}))
-  (println "initial state:" @machine.state/app-state)
+  (println "initial state:" @machine.util/app-state)
   (machine.core/reset-history)
-  (traverse :login machine.state/table))
+  (traverse :login table))
 
 (defn demo4-debug []
   (reset-state)
@@ -231,23 +256,23 @@
   ;; Setting app-state makes no sense in a debug setting. The user will answer all the if- state tests.
   (loop []
     (machine.core/reset-history)
-    (traverse-debug :login machine.state/table)
+    (traverse-debug :login table)
     (if (go-again) (recur)
         nil)))
 
 (defn demo5 []
   (reset-state)
   (swap! app-state #(merge % {:logged-in true :on-dashboard false :want-list true :moderator true}))
-  (println "initial state:" @machine.state/app-state)
+  (println "initial state:" @machine.util/app-state)
   (machine.core/reset-history)
-  (traverse :login machine.state/table))
+  (traverse :login table))
 
 (defn demo6 []
   (reset-state)
   (swap! app-state #(merge % {:logged-in false :on-dashboard false :want-list true :moderator true}))
-  (println "initial state:" @machine.state/app-state)
+  (println "initial state:" @machine.util/app-state)
   (machine.core/reset-history)
-  (traverse :login machine.state/table))
+  (traverse :login table))
 
 (defn -main
   "Parse the states.dat file."
