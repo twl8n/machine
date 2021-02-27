@@ -18,5 +18,5 @@
 (defn if-arg [tkey]
   (if (:test-mode @app-state)
     tkey
-    (do (prn tkey (tkey @app-state))
+    (do ;; (prn tkey (tkey @app-state))
         (= true (tkey @app-state)))))
