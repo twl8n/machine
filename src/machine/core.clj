@@ -119,7 +119,7 @@
     {:error true :msg (format "infinite loop? state: %s" state)}
     (do
       (swap! history #(conj % {:state state}))
-      (if (nil? state)
+      (if (or (nil? state) (nil? (state tv-table nil)))
         nil
         (loop [tt (state tv-table)]
           (let [curr (first tt)
@@ -203,7 +203,7 @@
 
 ;; check for infinite loops by running the machine with every possible combination of app-state values.
 ;; This only checks one starting state :login. A more complete test might be to try every state as a starting value.
-(defn check-infinite [table]
+(defn check-infinite [start-state table]
   (let [test-table (munge-table-for-testing table)
         known-tests (vec (set (filter keyword? (map first (mapcat conj (vals test-table))))))
         state-combos (mapcat #(combo/permuted-combinations known-tests %) (range 1 (count known-tests)))
@@ -214,7 +214,7 @@
                    (run! add-state tstate)
                    ;; (reset! limit-check 0)
                    (machine.core/reset-history)
-                   (machine.core/traverse :login test-table)) state-combos))))
+                   (machine.core/traverse start-state test-table)) state-combos))))
 
 
 (defn demo []
