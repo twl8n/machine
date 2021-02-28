@@ -1,3 +1,76 @@
+;; 2021-02-27
+
+;; Loop through tests (nth curr 0) while tests are false, until hitting wait.
+;; Stop looping  if test is true, and change to the next-state-edge (nth curr 2).
+(defn traverse-debug
+  [state tv-table]
+  (add-state :test-mode)
+  (if (nil? state)
+    nil
+    (loop [tt tv-table
+           xx 1]
+      (let [curr (first tt)
+            test-result (user-input (nth curr 0))]
+        (if (and test-result (some? (nth curr 1)))
+          (traverse-debug (nth curr 1) tv-table)
+          (if (seq (rest tt))
+            (recur (rest tt) (inc xx))
+            nil))))))
+
+;; http://stackoverflow.com/questions/6135764/when-to-use-zipmap-and-when-map-vector
+;; Use (zipmap ...) when you want to directly construct a hashmap from separate sequences of keys and values. The output is a hashmap:
+
+(defn sub-table [edge table]
+  (edge table))
+
+(defn traverse-test
+  [state table]
+  (if (contains? @history {:state state :app-state @app-state})
+    {:error true :msg (format "infinite loop? state: %s app-state: %s " state @app-state)}
+    (do
+      (swap! history #(conj % {:state state}))
+      (if (nil? state)
+        nil
+        (loop [tt (state table)]
+          (let [curr (first tt)
+                test-result (if-arg (nth curr 0))]
+            ;; We're testing, so don't run the side effect fn.
+            (if (and test-result (some? (nth curr 2)))
+              (traverse-test (nth curr 2) table)
+              (if (seq (rest tt))
+                (recur (rest tt))))))))))
+
+;; This is an ok first try, but it doesn't take [wait nil] into account as a halting condition.
+;; And it doesn't take running out of edge-test-functions as a halting condition.
+;; And it doesn't account for if-tests that won't hit for transitioned states.
+(defn traverse-all
+  [state table]
+  (printf "state=%s\n" state)(flush)
+  (if (nil? state)
+    nil
+    (loop [tt (state table)]
+      (swap! limit-check inc)
+      (let [curr (first tt)
+            ;; test-result ((nth curr 0))
+            ]
+        ;; Assume true, but when we return, continue as though the test was false.
+        ;; Default to nil from (nth curr 1) in case there aren't 2 elements. We require 2 elements,
+        ;; but that test should be discovered by other code. 
+        (when (some? (nth curr 1 nil))
+          (do
+            (prn "new state: " (nth curr 1))
+            (traverse-all (nth curr 1) table)
+            (print (format "returning to state: %s\n" curr))))
+        (if (and (< @limit-check limit-max) (seq (rest tt)))
+          (do 
+            (printf "lc: %s and: %s\n" @limit-check (and (< @limit-check 15) (seq (rest tt))))
+            (flush)
+            (recur (rest tt)))
+          (do
+            (when (>= @limit-check limit-max) (printf "Stopping at limit-check %s. Infinite loop?\n" @limit-check))
+            nil))))))
+
+
 ;; Also, add a looping limit check. If the check exceeds some max, then apparently we are in an infinite loop.
 
 (defn traverse-loop-check

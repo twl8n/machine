@@ -31,19 +31,12 @@
 
 (defn draw-list [] (msg "running draw-list, returning true") true)
 
-;; State transition table. Keys in the table are named transition nodes.
+;; State transition table. See github.com/twl8n/machine
+(comment
+   {:transition-node-name
+    [[conditional-key dispatch-fn next-node]]}
+   )
 
-;; The "state" of the system is a hash map app-state consisting of keys and boolean values. Input events are
-;; mapped to boolean state values. Input might also determine the starting node.
-
-;; Node conditionals are individual keys from app-state. When the conditional is true, the dispatch function
-;; runs, and the machine transitions to the named node. False conditionals fall through, as do true
-;; conditionals with nil next node values. The machine halts when there are no remaining conditionals.
-
-;; Dispatch functions may be nil. Next node may be nil. 
-
-;; {:transition-node-name
-;; [conditional-key dispatch-fn next-node]
 (def table
   {:login
    [[:logged-in nil  :pages]
@@ -75,7 +68,4 @@
    [[:true #(msg "running: waiting for dashboard input") nil]]
    })
 
-(comment
-  (let [vtmap (verify-table table)]
-    (when (:fatal vtmap) (throw (Exception. (:msg vtmap)))))
-  )
+
