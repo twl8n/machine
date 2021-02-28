@@ -22,9 +22,7 @@
 
 ;; When testing, overload this with (binding [machine.util/if-arg machine.util/user-input] ...)
 (defn ^:dynamic if-arg [tkey]
-  (do
-    (print (format "if-arg tkey: %s return: %s\n" tkey (tkey @app-state)))
-    (= true (tkey @app-state))))
+  (= true (tkey @app-state)))
 
 
 (defn go-again []
@@ -36,20 +34,8 @@
     (printf "%s\n" user-answer)
     user-answer))
 
-;; 2021-01-26 Prompt user for any if- functions, but simply run the other functions which should all return false.
-;; If they return false, why do we run them??
-
-;; Functions have two string-ish name formats:
-;; #function[machine.core/if-logged-in]
-;; "machine.core$if_logged_in@5df2f577"
-;; The regex to identify an "if-" function varies depending on type of fn-name.
-;; (re-find #"\$if_" (str fn-name))
-;; (re-find #"/if-" (str fn-name))
-
-;; (cond (= fn-name (resolve 'fntrue)) (do (printf "Have fntrue, returning true.\n") (fntrue))
-;;       (= fn-name (resolve 'fnfalse)) (do (printf "Have fnfalse, returning false.\n" (fnfalse)))
-;;       (nil? (re-find #"\$if_" (str fn-name))) (fn-name)
-;;       :else
+;; 2021-02-27 In v5, the edge state tests are simply keywords, so we can simply print them (vs the old code that had to
+;; run a regex on the function symbol).
 
 (defn user-input [tkey]
   (if (= tkey :true)
@@ -78,11 +64,8 @@
 ;; Always stop when we run out of functions.
 ;; todo? Maybe stop when the wait function runs. Right now, wait is a no-op.
 
-;; 2021-02-23 Do something for testing.
-;; 1) When testing, munge the table so that side effect fns are all nil.
-;; 2) Move the `when` into a function, and swap out that function when testing.
-;; 3) Add a testing conditional to the `when`
-
+;; 2021-02-23 When testing, munge the state table so that side effect fns are all nil.
+;; This code is unchanged for prod/test.
 
 (defn traverse
   [state tv-table]
@@ -136,8 +119,9 @@
   (check-infinite :login machine.state/table)
   )
 
-;; Check for infinite loops by running the machine with every subset of app-state values.
-;; This only checks one starting state. A more complete test might be to try every state as a starting value.
+;; Check for infinite loops by running the machine with every subset of app-state values. This only checks one
+;; starting state. A more complete test might be to try every state as a starting value.
+
 (defn check-infinite [start-state table]
   (let [test-table (munge-table-for-testing table)
         ;; :true is always true, so do not include it as a known-test.
