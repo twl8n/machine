@@ -8,48 +8,24 @@ C-c C-e         cider-eval-last-sexp
 C-c M-i         cider-inspect
 C-c M-z         cider-load-buffer-and-switch-to-repl-buffer
 
-#### execution model
+#### State table and execution model
 
-See states_test.dat
+See src/machine/state.clj (def table ...) That is the state table.
 
-version 1: separate test and dispatch (side-effect) functions
+Version 5: Attempt to standardize nomenclature.
 
-Start with some state-edge (login).
-Loop over all rows running the test-or-func function for this state-edge.
-If true then run func-dispatch, and switch context to next-stage-edge.
-If false, loop (to the next row of the state table).
-Stop when no more rows or upon running the wait function.
-
-version 2: all test and dispatch functions are in the test-or-func column; func-dispatch column is unused.
-
-Start with some state-edge (login).
-Loop over all rows running the test-or-func function for this state-edge.
-If true then switch context to the next-stage-edge
-If false, continue looping through the rows.
-Stop when no more rows or upon running the wait function.
-
-version 3: First column is either if- or side-effect function. Traverse state if/functions until true or end. When an if- test is true, branch to the named state.
-
-Start with some state-edge (login).
-Loop over all rows running the test-or-func function for this state-edge.
-If true then switch context to the next-state-edge, if a next-stage-edge exists.
-If no next-state-edge, continue looping (regardless of the return value) until no more rows or until wait.
-
-version 4: Like v3 in that the first column is if-or-function, but now the if- gains an optional third
-argument which is a function that runs when the if- is true. This allows if- to do more work without switching
-to another state.
-
-version 5: Attempt to standard nomenclature.
-
-Revert to 3 columns for transition values. The first column is a keyword that returns a boolean from app-state. The second column is a side-effecty function (or nil), and the third columnn is the next named transition (or nil).
+Revert to 3 columns for transition values. The first column is a keyword that returns a boolean from
+app-state. The second column is a side-effecty function (or nil), and the third columnn is the next named
+transition (or nil).
 
 The state transition table is `machine.state/table`. Keys in the table are named transition nodes.
 
-The "state" of the system is a hash map atom `machine.state/app-state` consisting of keys and boolean values. Input events are
-mapped to boolean state values. Input might also determine the transition table starting node.
+The "state" of the system is a hash map atom `machine.state/app-state` consisting of keys and boolean values.
+Input events are mapped to boolean state values. Input might also determine the transition table starting
+node.
 
-Transition conditionals are individual keys from app-state. When the conditional is true, the dispatch function
-runs, and the machine transitions to the named node. False conditionals fall through, as do true
+Transition conditionals are individual keys from app-state. When the conditional is true, the dispatch
+function runs, and the machine transitions to the named node. False conditionals fall through, as do true
 conditionals with nil next node values. The machine halts when there are no remaining conditionals.
 
 Dispatch functions may be nil. Next node may be nil. 
@@ -62,15 +38,51 @@ idea. Make it a rule that the in-scope app-state is not modified by the state ma
 functions. Global state can only go into effect after the machine halts. Side effects and inputs change the
 state that will be seen by the next run of the state machine.
 
+version 4: Like v3 in that the first column is if-or-function, but now the if- gains an optional third
+argument which is a function that runs when the if- is true. This allows if- to do more work without switching
+to another state.
+
+version 3: First column is either if- or side-effect function. Traverse state if/functions until true or end. When an if- test is true, branch to the named state.
+
+Start with some state-edge (login).
+Loop over all rows running the test-or-func function for this state-edge.
+If true then switch context to the next-state-edge, if a next-stage-edge exists.
+If no next-state-edge, continue looping (regardless of the return value) until no more rows or until wait.
+
+
+
+version 2: all test and dispatch functions are in the test-or-func column; func-dispatch column is unused.
+
+Start with some state-edge (login).
+Loop over all rows running the test-or-func function for this state-edge.
+If true then switch context to the next-stage-edge
+If false, continue looping through the rows.
+Stop when no more rows or upon running the wait function.
+
+version 1: separate test and dispatch (side-effect) functions
+
+Start with some state-edge (login).
+Loop over all rows running the test-or-func function for this state-edge.
+If true then run func-dispatch, and switch context to next-stage-edge.
+If false, loop (to the next row of the state table).
+Stop when no more rows or upon running the wait function.
+
+
 
 #### usage
 
+The interactive demo is demo4-debug. Answer y for yes/true and n for no/false.
+
+`clj -X machine.core/-main`
+
 ```
-clojure -m machine.core demo
-clojure -m machine.core demo2
-clojure -m machine.core demo3
-clojure -m machine.core demo4
-clojure -m machine.core demo4-debug
+clj -X machine.core/-main :args demo4-debug
+clj -X machine.core/-main :args demo
+clj -X machine.core/-main :args demo2
+clj -X machine.core/-main :args demo3
+clj -X machine.core/-main :args demo4
+clj -X machine.core/-main :args demo5
+clj -X machine.core/-main :args demo6
 ```
 
 ```

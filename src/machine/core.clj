@@ -6,23 +6,21 @@
             [clojure.pprint :as pp])
   (:gen-class))
 
-;; Workaround for the namespace changing to "user" after compile and before -main is invoked
-(def true-ns (ns-name *ns*))
-
 (defn -main
-  "Parse the states.dat file."
+  "Run demos against the machine.state/table"
   [& args]
   (printf "args: %s\n" args)
-  ;; Workaround for the namespace changing to "user" after compile and before -main is invoked
-  (in-ns true-ns)
 
-  (let [first-arg (nth args 0)]
-    (cond (= first-arg "demo") (machine.demo/demo table)
-          (= first-arg "demo2") (machine.demo/demo2 table)
-          (= first-arg "demo3") (machine.demo/demo3 table)
-          (= first-arg "demo4") (machine.demo/demo4 table)
-          (= first-arg "demo4-debug") (machine.demo/demo4-debug table)
-          (= first-arg "demo5") (machine.demo/demo5 table)
-          (= first-arg "demo6") (machine.demo/demo6 table)
+  ;; 2026-03-18 New-ish arg passing is more complex. Parse out the arg we want, and force it to be a string
+
+  (let [first-arg (str (:args (nth args 0)))]
+    ;; (printf "first-arg: %s type: %s\n" first-arg (type first-arg))
+    (cond (= first-arg "demo") (machine.demo/demo)
+          (= first-arg "demo2") (machine.demo/demo2)
+          (= first-arg "demo3") (machine.demo/demo3)
+          (= first-arg "demo4") (machine.demo/demo4)
+          (= first-arg "demo4-debug") (machine.demo/demo4-debug)
+          (= first-arg "demo5") (machine.demo/demo5)
+          (= first-arg "demo6") (machine.demo/demo6)
           :else
-          (machine.demo/demo))))
+          (machine.demo/demo4-debug))))

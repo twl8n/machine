@@ -43,6 +43,9 @@
   (let [table machine.state/table]
     (loop []
       (machine.util/reset-history)
+      ;; This is confusing.
+      ;; function if-arg is defn ^:dynamic allowing it to re-bound to a different function.
+      ;; Is is possible to use different arity? Or some function meta data? Or an old-school global state variable?
       (binding [machine.util/if-arg machine.util/user-input]
         (traverse :login table))
       (if (go-again) (recur)

@@ -21,8 +21,12 @@
   (swap! app-state #(apply dissoc %  [old-kw])))
 
 ;; When testing, overload this with (binding [machine.util/if-arg machine.util/user-input] ...)
+;; I think "testing" means running the state table in simulation mode. Need more info.
+;; By using ^:dynamic we allow this function to re-bound to a different function.
+;; Confusing. Can't we simply use a two function signatures to dispatch the normal/test version??
+;; See (defn user-input [tkey] below.
 (defn ^:dynamic if-arg [tkey]
-  (= true (tkey @app-state)))
+    (= true (tkey @app-state)))
 
 
 (defn go-again []
@@ -77,7 +81,12 @@
         nil
         (loop [tt (state tv-table)]
           (let [curr (first tt)
-                test-result (if-arg (nth curr 0))]
+                test-result (try (if-arg (nth curr 0))
+                                 (catch Exception e
+                                   (printf "testing %s\n%s\n"
+                                           (nth (first tt) 0)
+                                           (str "caught exception: " (.getMessage e)))
+                                   false))]
             (when (and test-result (some? (nth curr 1)))
               ((nth curr 1)))
             (if (and test-result (some? (nth curr 2)))
