@@ -62,9 +62,10 @@
 ;; 2021-02-27 Looping in the state machine is illegal, so we only need a simple history of named state transitions.
 ;; If we see a state transtion a second time, something is wrong.
 
-;; 2021-02-16
-;; If test-result and there is a new state, go to that state. When we return, we're done.
-;; Otherwise go to the next function of this state (regardless of the truthy-ness of a test or function return).
+;; 2026-03-22
+;; If test-result and the state-fn (nth curr 1) does not return *false*, and there is a new state, go to that state. When we return, we're done.
+;; To support legacy non-boolean returning state-fns, only false prevents traverse of (nth curr 2).
+;; If the state-fn returns true or nil, and we have (nth curr 2) then traverse (nth curr 2).
 ;; Always stop when we run out of functions.
 ;; todo? Maybe stop when the wait function runs. Right now, wait is a no-op.
 
@@ -86,10 +87,11 @@
                                    (printf "testing %s\n%s\n"
                                            (nth (first tt) 0)
                                            (str "caught exception: " (.getMessage e)))
-                                   false))]
-            (when (and test-result (some? (nth curr 1)))
-              ((nth curr 1)))
-            (if (and test-result (some? (nth curr 2)))
+                                   false))
+                fn-result (when (and test-result (some? (nth curr 1)))
+                            ((nth curr 1)))
+                fn-truth (if (false? fn-result) false true)] ;; a state fn is false only if explicitly false. Otherwise true.
+            (if (and fn-truth test-result (some? (nth curr 2)))
               (traverse (nth curr 2) tv-table)
               (if (seq (rest tt))
                 (recur (rest tt))
