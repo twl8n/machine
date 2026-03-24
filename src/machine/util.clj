@@ -20,15 +20,6 @@
 (defn remove-state [old-kw]
   (swap! app-state #(apply dissoc %  [old-kw])))
 
-;; When testing, overload this with (binding [machine.util/if-arg machine.util/user-input] ...)
-;; I think "testing" means running the state table in simulation mode. Need more info.
-;; By using ^:dynamic we allow this function to re-bound to a different function.
-;; Confusing. Can't we simply use a two function signatures to dispatch the normal/test version??
-;; See (defn user-input [tkey] below.
-(defn ^:dynamic if-arg [tkey]
-    (= true (tkey @app-state)))
-
-
 (defn go-again []
   (print "Go again?")
   (flush)
@@ -55,6 +46,15 @@
         (printf "%s\n" user-answer)
         user-answer))))
 
+;; When testing/simulation, overload if-arg in demo.clj (binding [machine.util/if-arg machine.util/user-input] ...)
+;; By using ^:dynamic we allow this function to re-bound to a different function.
+;; Confusing. Can't we simply use a two function signatures to dispatch the normal/test version??
+;; See (defn user-input [tkey] below.
+
+;; ^:dynamic 
+(defn if-arg [tkey]
+    (= true (tkey @app-state)))
+
 ;; 2021-02-20 Add an infinite loop detector based on a combination of state and app-state. At the beginning of
 ;; traverse check the history to see if we've enountered the state+app-state combination. If yes, then return
 ;; an error message, else conj state+app-state to the history and continue.
@@ -73,7 +73,8 @@
 ;; This code is unchanged for prod/test.
 
 (defn traverse
-  [state tv-table]
+  "Traverse the state table. state is the starting state, tv-table the table, test-arg-fn function to test state."
+  [state tv-table test-arg-fn]
   (if (contains? @history state)
     {:error true :msg (format "infinite loop? state: %s history: %s" state @history)}
     (do
@@ -82,7 +83,7 @@
         nil
         (loop [tt (state tv-table)]
           (let [curr (first tt)
-                test-result (try (if-arg (nth curr 0))
+                test-result (try (test-arg-fn (nth curr 0))
                                  (catch Exception e
                                    (printf "testing %s\n%s\n"
                                            (nth (first tt) 0)
@@ -92,7 +93,7 @@
                             ((nth curr 1)))
                 fn-truth (if (false? fn-result) false true)] ;; a state fn is false only if explicitly false. Otherwise true.
             (if (and fn-truth test-result (some? (nth curr 2)))
-              (traverse (nth curr 2) tv-table)
+              (traverse (nth curr 2) tv-table test-arg-fn)
               (if (seq (rest tt))
                 (recur (rest tt))
                 nil))))))))
@@ -143,4 +144,4 @@
                    (reset-state)
                    (run! add-state tstate)
                    (reset-history)
-                   (traverse start-state test-table)) state-combos))))
+                   (traverse start-state test-table if-arg)) state-combos))))

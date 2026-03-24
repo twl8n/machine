@@ -11,7 +11,7 @@
   (println "initial state: " @machine.util/app-state)
   ;; (pp/pprint machine.state/table)
   (machine.util/reset-history)
-  (traverse :login machine.state/table)
+  (traverse :login machine.state/table machine.util/if-arg)
   )
 
 (defn demo2 []
@@ -19,7 +19,7 @@
   (swap! app-state #(merge % {:logged-in true}))
   (println "initial state:" @machine.util/app-state)
   (machine.util/reset-history)
-  (traverse :login machine.state/table)
+  (traverse :login machine.state/table machine.util/if-arg)
   )
 
 (defn demo3 []
@@ -27,14 +27,14 @@
   (swap! app-state #(merge % {:logged-in true :on-dashboard true}))
   (println "initial state:" @machine.util/app-state)
   (machine.util/reset-history)
-  (traverse :login machine.state/table))
+  (traverse :login machine.state/table machine.util/if-arg))
 
 (defn demo4 []
   (reset-state)
   (swap! app-state #(merge % {:logged-in true :on-dashboard false :want-dashboard true :moderator true}))
   (println "initial state:" @machine.util/app-state)
   (machine.util/reset-history)
-  (traverse :login  machine.state/table))
+  (traverse :login  machine.state/table machine.util/if-arg))
 
 (defn demo4-debug []
   (reset-state)
@@ -43,11 +43,7 @@
   (let [table machine.state/table]
     (loop []
       (machine.util/reset-history)
-      ;; This is confusing.
-      ;; function if-arg is defn ^:dynamic allowing it to re-bound to a different function.
-      ;; Is is possible to use different arity? Or some function meta data? Or an old-school global state variable?
-      (binding [machine.util/if-arg machine.util/user-input]
-        (traverse :login table))
+      (traverse :login table machine.util/user-input)
       (if (go-again) (recur)
           nil))))
 
@@ -56,11 +52,11 @@
   (swap! app-state #(merge % {:logged-in true :on-dashboard false :want-list true :moderator true}))
   (println "initial state:" @machine.util/app-state)
   (machine.util/reset-history)
-  (traverse :login machine.state/table))
+  (traverse :login machine.state/table machine.util/if-arg))
 
 (defn demo6 []
   (reset-state)
   (swap! app-state #(merge % {:logged-in false :on-dashboard false :want-list true :moderator true}))
   (println "initial state:" @machine.util/app-state)
   (machine.util/reset-history)
-  (traverse :login  machine.state/table))
+  (traverse :login  machine.state/table machine.util/if-arg))
