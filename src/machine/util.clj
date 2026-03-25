@@ -1,5 +1,6 @@
 (ns machine.util
-  (:require [clojure.string :as str]
+  (:require [clojure.test]
+            [clojure.string :as str]
             [clojure.set :as set]
             [clojure.math.combinatorics :as combo]
             [clojure.pprint :as pp]))
@@ -13,6 +14,16 @@
 ;; app-state always has a :true that is true
 (defn reset-state [] 
   (swap! app-state (fn [foo] {:true true})))
+
+;; This works too, but longer and harder to read:
+;; (apply merge (map #(assoc {} % true) (cons :true (keys @params))))
+
+;; This might logically break for {:some-key ""} or {:some-key nil} that the end user might expect to be
+;; a "false" state test.
+(defn set-app-state
+  "Create a hashmap where all the keys from params have true as their value. {:true true} must always exist."
+  [params]
+  (reset! app-state (into {:true true} (map (fn [[kk vv]] {kk true}) params))))
 
 (defn add-state [new-kw]
   (swap! app-state #(apply assoc % [new-kw true])))
@@ -46,14 +57,13 @@
         (printf "%s\n" user-answer)
         user-answer))))
 
-;; When testing/simulation, overload if-arg in demo.clj (binding [machine.util/if-arg machine.util/user-input] ...)
-;; By using ^:dynamic we allow this function to re-bound to a different function.
-;; Confusing. Can't we simply use a two function signatures to dispatch the normal/test version??
-;; See (defn user-input [tkey] below.
-
-;; ^:dynamic 
-(defn if-arg [tkey]
-    (= true (tkey @app-state)))
+;; The "test" of a state edge can be a keyword contained/not-contained in @app-state, or a function that returns a boolean.
+(defn if-arg
+  "If a keyword, return value from @app-state. If a fn, run fn and return the return value."
+  [tkey]
+  (if (keyword? tkey)
+    (= true (tkey @app-state))
+    (if (clojure.test/function? tkey) (tkey) false)))
 
 ;; 2021-02-20 Add an infinite loop detector based on a combination of state and app-state. At the beginning of
 ;; traverse check the history to see if we've enountered the state+app-state combination. If yes, then return
@@ -63,11 +73,12 @@
 ;; If we see a state transtion a second time, something is wrong.
 
 ;; 2026-03-22
-;; If test-result and the state-fn (nth curr 1) does not return *false*, and there is a new state, go to that state. When we return, we're done.
+;; If test-result and the state-fn (nth curr 1) does not return *false*, and there is a new state, go to that state.
+;; When we return, we're done.
+
 ;; To support legacy non-boolean returning state-fns, only false prevents traverse of (nth curr 2).
 ;; If the state-fn returns true or nil, and we have (nth curr 2) then traverse (nth curr 2).
 ;; Always stop when we run out of functions.
-;; todo? Maybe stop when the wait function runs. Right now, wait is a no-op.
 
 ;; 2021-02-23 When testing, munge the state table so that side effect fns are all nil.
 ;; This code is unchanged for prod/test.
@@ -125,8 +136,8 @@
     table))
 
 (comment
-  (verify-table table)
-  (check-table table)
+  (verify-table machine.state/table)
+  (check-table machine.state/table)
   (machine.demo/demo)
   (check-infinite :login machine.state/table)
   )
@@ -142,6 +153,6 @@
     (remove nil?
             (map (fn [tstate]
                    (reset-state)
-                   (run! add-state tstate)
+                   (set-app-state tstate)
                    (reset-history)
                    (traverse start-state test-table if-arg)) state-combos))))
