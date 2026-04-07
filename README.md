@@ -1,13 +1,3 @@
-#### machine
-
-cider keystrokes to remember
-C-c M-n         cider-ns-map
-C-c M-n n       cider-repl-set-ns
-C-c C-k         cider-load-buffer
-C-c C-e         cider-eval-last-sexp
-C-c M-i         cider-inspect
-C-c M-z         cider-load-buffer-and-switch-to-repl-buffer
-
 #### State table and execution model
 
 See src/machine/state.clj (def table ...) That is the state table.
@@ -49,8 +39,6 @@ Loop over all rows running the test-or-func function for this state-edge.
 If true then switch context to the next-state-edge, if a next-stage-edge exists.
 If no next-state-edge, continue looping (regardless of the return value) until no more rows or until wait.
 
-
-
 version 2: all test and dispatch functions are in the test-or-func column; func-dispatch column is unused.
 
 Start with some state-edge (login).
@@ -66,7 +54,6 @@ Loop over all rows running the test-or-func function for this state-edge.
 If true then run func-dispatch, and switch context to next-stage-edge.
 If false, loop (to the next row of the state table).
 Stop when no more rows or upon running the wait function.
-
 
 
 #### usage
@@ -101,9 +88,11 @@ lein run
 
 In a cider repl:
 
+```
 (def logged-in-state true)
 (demo)
 (demo4)
+```
 
 The read-line loop was removed (deprecated). 
 
@@ -114,7 +103,7 @@ The read-line loop was removed (deprecated).
   detector, but it is also running the dispatch functions. In this project dispatch functions only print
   stuff, so this solution is not generalized.
 
-na 2021-01-16 * demo4 fails, perhaps because will-not-dashboard doesn't exist.
+- na 2021-01-16 * demo4 fails, perhaps because will-not-dashboard doesn't exist.
 Maybe if table has any fail during parsing, then exit.
 
 * upgrade state node vectors to a map for the sake of debugging, and
@@ -148,23 +137,26 @@ next call to sub-table
 
 * sanity check can't reach the 3rd line:
 
+```
 (The test of the second line is always true, so that will always fire.
 
 | login          | if-logged-in |                          | pages           |
 | login          |              | draw-login               | login-wait      |
 | login          |              | wait                     | login           |
+```
 
-* exit kills the repl, need something (like an exception) to exit clj, but leave the repl intact.
+- exit kills the repl, need something (like an exception) to exit clj, but leave the repl intact.
 
-(System/exit 0)
+`(System/exit 0)`
 
-fixed 2021-02-16 machine.state/table is a normal hashmap, not an atom.
+- fixed 2021-02-16 machine.state/table is a normal hashmap, not an atom.
 
-na 2021-01-16 (def table (read-state-file)) inside defn causes the def to be eval'd at compile time (or early in run time) before the other defn's have been eval'd. This results in "Unable to resolve symbol: draw-dashboard-moderator in this context" It was always a bad idea to def, so switch to an atom.
+- na 2021-01-16 (def table (read-state-file)) inside defn causes the def to be eval'd at compile time (or early in run time) before the other defn's have been eval'd. This results in "Unable to resolve symbol: draw-dashboard-moderator in this context" It was always a bad idea to def, so switch to an atom.
 
 
 #### notes
 
+```
 (defn foo [xx] (str "this is foo " xx))
 (def bar (eval (read-string "{:func foo}")))
 ((:func bar) 22)
@@ -172,8 +164,8 @@ na 2021-01-16 (def table (read-state-file)) inside defn causes the def to be eva
 (def bar {:func (eval 'foo)})
 
 (def bar {:func (eval (symbol "foo"))})
+```
 
-x
 
 Workflow state machine ported to Clojure
 
@@ -184,8 +176,21 @@ Workflow state machine ported to Clojure
 
 Versions are mostly based on the structure of the state table.
 
+```
 git tag v4
 git push origin v4
+```
+
+#### Emacs cider keystrokes to remember
+
+I often got months at a time doing things besides writing software, so I need this reminder
+
+- C-c M-n         cider-ns-map
+- C-c M-n n       cider-repl-set-ns
+- C-c C-k         cider-load-buffer
+- C-c C-e         cider-eval-last-sexp
+- C-c M-i         cider-inspect
+- C-c M-z         cider-load-buffer-and-switch-to-repl-buffer
 
 
 #### License
