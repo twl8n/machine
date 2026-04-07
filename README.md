@@ -2,20 +2,39 @@
 
 See src/machine/state.clj (def table ...) That is the state table.
 
+Version 5.1 Improve usability
+
+First column can be a boolean function.
+
+The state table (src/machine/state.clj, machine.state/table) is in reality a hashmap of state tables. 
+
+The actual state tables are represented as a vector of vectors. States run in order. False tests fall through. When the states are exhausted, stop traversing the state table. A state might transition to a new table, where the process starts over. I suggest that you include a :true final state as a catch-all. Traversal current checks the history for table names. Hitting a table a second time triggers an infinite loop error, and traversal stops. There is currently no final/catchall for this error, but clearly something is necessary to fix this undefined behavior.
+
+All functions referenced in the table must exist. All Next table (see below) keys must exist.
+
+There is a state params hashmap (machine.util/app-state) that encodes whatever concept of "state" exists. It is the responsibility of the calling code to fill app-state with all relevant "state" information prior to traversing the table. The app-state is not modified by traversing the table. This state machine is round-based (in gaming parlance). During one round "state" is encoded, the table is traversed, the round ends. Repeat.
+
+Each inner vector of a table is called a "transition", "edge", or "state". Yes, they are fixed order, and order is important. We call each inner vector a transition (except when I forget and call it a "state"). A transition has 3 elements: Test, Function, Next table. Transitions are traversed in order.
+
+- Test is a keyword or function. If a keyword then true if present in the app-state. Test may also be a boolean function, presumably returning the boolean based on "state" of the application, broadly speaking. If test is true, then run the Function. nil is not a legal Test.
+
+- Function is a function or nil. Function only runs when the test is true. Functions presumably have a useful side effect. The result of the function is checked for truthiness. True is true, nil is true, and false is false. Nil must be true so that the table can transition when there is no side effect. It also means that side effecting functions returning nil are still true, which is convenient, albeit not as robust as it might be.
+
+- Next table is a key to another state table, or nil. This transition only happens if Test is true and the Function is true, and if the Next table is not nil. If Test is true and Function is true/nil and Next table is non-nil then transition to Next table. 
+
 Version 5: Attempt to standardize nomenclature.
 
 Revert to 3 columns for transition values. The first column is a keyword that returns a boolean from
-app-state. The second column is a side-effecty function (or nil), and the third columnn is the next named
-transition (or nil).
+app-state. The second column is a side-effecty function (or nil), and the third columnn is the next named-transition (or nil).
 
-The state transition table is `machine.state/table`. Keys in the table are named transition nodes.
+The state transition table is `machine.state/table`. Keys in the table are named-transition nodes.
 
 The "state" of the system is a hash map atom `machine.state/app-state` consisting of keys and boolean values.
 Input events are mapped to boolean state values. Input might also determine the transition table starting
 node.
 
 Transition conditionals are individual keys from app-state. When the conditional is true, the dispatch
-function runs, and the machine transitions to the named node. False conditionals fall through, as do true
+function runs, and the machine transitions to the name-transition. False conditionals fall through, as do true
 conditionals with nil next node values. The machine halts when there are no remaining conditionals.
 
 Dispatch functions may be nil. Next node may be nil. 
@@ -28,18 +47,18 @@ idea. Make it a rule that the in-scope app-state is not modified by the state ma
 functions. Global state can only go into effect after the machine halts. Side effects and inputs change the
 state that will be seen by the next run of the state machine.
 
-version 4: Like v3 in that the first column is if-or-function, but now the if- gains an optional third
+Version 4: Like v3 in that the first column is if-or-function, but now the if- gains an optional third
 argument which is a function that runs when the if- is true. This allows if- to do more work without switching
 to another state.
 
-version 3: First column is either if- or side-effect function. Traverse state if/functions until true or end. When an if- test is true, branch to the named state.
+Version 3: First column is either if- or side-effect function. Traverse state if/functions until true or end. When an if- test is true, branch to the named state.
 
 Start with some state-edge (login).
 Loop over all rows running the test-or-func function for this state-edge.
 If true then switch context to the next-state-edge, if a next-stage-edge exists.
 If no next-state-edge, continue looping (regardless of the return value) until no more rows or until wait.
 
-version 2: all test and dispatch functions are in the test-or-func column; func-dispatch column is unused.
+Version 2: all test and dispatch functions are in the test-or-func column; func-dispatch column is unused.
 
 Start with some state-edge (login).
 Loop over all rows running the test-or-func function for this state-edge.
@@ -47,7 +66,7 @@ If true then switch context to the next-stage-edge
 If false, continue looping through the rows.
 Stop when no more rows or upon running the wait function.
 
-version 1: separate test and dispatch (side-effect) functions
+Version 1: separate test and dispatch (side-effect) functions
 
 Start with some state-edge (login).
 Loop over all rows running the test-or-func function for this state-edge.
