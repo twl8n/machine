@@ -56,7 +56,7 @@ If false, loop (to the next row of the state table).
 Stop when no more rows or upon running the wait function.
 
 
-#### usage
+#### Usage
 
 The interactive demo is demo4-debug. Answer y for yes/true and n for no/false.
 
@@ -84,7 +84,7 @@ machine.eval_symbol=> (-main)
 ...
 ```
 
-lein run
+`lein run`
 
 In a cider repl:
 
@@ -169,8 +169,10 @@ next call to sub-table
 
 Workflow state machine ported to Clojure
 
+```
 ;; turn this into a function, run on the seq of maps that is the state table from read-state-file
 ;;   (map (fn [x] (if (not (= "" (x :test))) (assoc x :testx (eval (read-string (x :test)))) x)) table)
+```
 
 #### git tagging notes
 
